@@ -101,9 +101,11 @@ class CodingLoop:
         journal: Journal | None = None,
         registry: ToolRegistry | None = None,
         shell: Shell | None = None,
+        system_prompt: str | None = None,
     ):
         self.cfg = config or TrishulaConfig()
         self.journal = journal or Journal()
+        self.system_prompt = system_prompt or _SYSTEM_PROMPT
         self.ws = workspace if isinstance(workspace, Workspace) else Workspace(
             workspace, readonly=self.cfg.workspace_readonly
         )
@@ -150,12 +152,24 @@ class CodingLoop:
         self.journal.emit(EventKind.PLAN_MADE, goal=goal, client=client.name)
 
         bundle = self.context_engine.build_context(goal)
+        mem_block = ""
+        if getattr(self.cfg, "engineering_memory", True):
+            try:
+                from trishula.engineering.memory import EngineeringMemory
+
+                mem = EngineeringMemory(home=self.cfg.home)
+                mem_block = mem.context_for(goal, k=getattr(self.cfg, "memory_search_k", 5))
+            except Exception as exc:  # noqa: BLE001
+                log.debug("memory injection skipped: %s", exc)
+        context_block = bundle.render()
+        if mem_block:
+            context_block = mem_block + "\n\n" + context_block
         messages: list[Message] = [
-            Message.system(_SYSTEM_PROMPT),
+            Message.system(self.system_prompt),
             Message.user(
                 f"TASK: {goal}\n\n"
                 f"=== Curated repository context (~{bundle.estimated_tokens} tokens) ===\n"
-                f"{bundle.render()}\n"
+                f"{context_block}\n"
                 f"=== End context. Now make the change and verify it. ==="
             ),
         ]

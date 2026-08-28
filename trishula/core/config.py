@@ -64,6 +64,10 @@ class TrishulaConfig:
     coverage_min_pct: float = 0.70       # below this, uncovered lines become feedback
     auto_generate_tests: bool = False    # scaffold smoke/property tests for new functions
     coding_repair_rounds: int = 2        # bounded verify→repair re-verification rounds
+    engineering_memory: bool = True      # inject + persist engineering memory
+    memory_search_k: int = 5             # relevant memory records injected per run
+    prompt_evolution: bool = True        # distill retrospectives into prompt rules
+    parse_sim_results: bool = True       # parse SPICE/FEA/CFD logs in verification
 
     # ── CHIT-SHODHANA: autonomy ─────────────────────────────────────────
     skill_min_success_quality: float = 0.55  # bar for auto-promoting a skill

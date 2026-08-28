@@ -65,6 +65,7 @@ class VerificationResult:
     # phase 2
     property_results: list[dict[str, Any]] = field(default_factory=list)
     coverage: dict[str, Any] | None = None
+    sim_results: list[dict[str, Any]] = field(default_factory=list)
     feedback: str = ""   # machine-actionable hints fed back to the coding loop
 
     def to_dict(self) -> dict[str, Any]:
@@ -138,7 +139,12 @@ class Verifier:
             result.verdict = Verdict.PASS if result.syntax_ok else Verdict.FAIL
             result.summary = "syntax OK" if result.syntax_ok else "syntax failed"
 
-        # 3. Phase 2 — property testing + statement coverage feedback.
+        # 3. Simulator results (SPICE/FEA/CFD logs) — parse real output, never
+        #    fabricate. A failed/non-converged run downgrades the verdict.
+        if getattr(self.cfg, "parse_sim_results", True):
+            self._check_simulations(result, changed)
+
+        # 4. Phase 2 — property testing + statement coverage feedback.
         if result.verdict in (Verdict.PASS, Verdict.PARTIAL):
             self._phase2(result, changed, generated)
 
@@ -157,6 +163,54 @@ class Verifier:
             log.warning("test scaffolding failed: %s", exc)
             return []
         return list(mapping.values())
+
+    def _check_simulations(self, result: VerificationResult,
+                           changed: list[str]) -> None:
+        """Parse any SPICE/FEA/CFD logs referenced by the change.
+
+        Only files that the simulator actually wrote are read; a log that did
+        not converge (or reports errors) fails verification, because claiming
+        success from a diverged simulation is the cardinal engineering sin.
+        Converged results are also offered to engineering memory.
+        """
+        from trishula.engineering.simresults import parse_file
+
+        exts = (".log", ".out", ".txt", ".rpt")
+        sim_files = [
+            f for f in changed
+            if f.lower().endswith(exts)
+            or any(k in f.lower() for k in ("spice", "ngspice", "fea", "cfd",
+                                           "openfoam", "calculix", "fluent"))
+        ]
+        notes: list[str] = []
+        for rel in sim_files[:8]:
+            path = self.ws.resolve(rel)
+            if not path.exists():
+                continue
+            sim = parse_file(path)
+            if sim.flavor == "unknown":
+                continue
+            result.sim_results.append(sim.to_dict())
+            if not sim.ok:
+                result.verdict = Verdict.FAIL
+                result.summary = f"{sim.flavor.upper()} simulation did NOT converge: " \
+                                 f"{sim.errors[0] if sim.errors else sim.summary}"
+                notes.append(f"{rel}: {sim.summary} Fix the design so the run converges.")
+            else:
+                notes.append(f"{rel}: {sim.summary}")
+            self._remember_sim(sim)
+        if notes and result.verdict in (Verdict.PASS, Verdict.PARTIAL):
+            result.feedback = (result.feedback + "\n" + "\n".join(notes)).strip()
+
+    def _remember_sim(self, sim) -> None:  # noqa: ANN001
+        if not getattr(sim, "ok", False):
+            return
+        try:
+            from trishula.engineering.memory import EngineeringMemory
+
+            EngineeringMemory(home=self.cfg.home).ingest_simulation(sim)
+        except Exception:  # noqa: BLE001 - memory is best-effort
+            pass
 
     def _phase2(self, result: VerificationResult, changed: list[str],
                 generated: list[str]) -> None:

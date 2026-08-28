@@ -52,6 +52,23 @@ class AutonomyLoop:
         self.library = library or SkillLibrary(self.cfg)
         self.reflector = Reflector()
         self.runs_db = Database(self.cfg.runs_db)
+        # Self-improving prompt loop + persistent engineering memory.
+        from trishula.autonomy.prompt_evolution import PromptEvolution
+        from trishula.engineering.memory import EngineeringMemory
+
+        self.prompt_ev = PromptEvolution(home=self.cfg.home, client=self._llm())
+        self.eng_memory = EngineeringMemory(home=self.cfg.home)
+
+    def _llm(self):
+        if self.client is not None:
+            return self.client
+        try:
+            from trishula.llm import get_client
+
+            c = get_client(self.cfg)
+            return c if c.name != "stub" else None
+        except Exception:  # noqa: BLE001
+            return None
 
     def coding_task(self, goal: str, *, max_steps: int | None = None) -> AutonomyRun:
         """Run one coding goal through the full learn loop."""
@@ -63,16 +80,27 @@ class AutonomyLoop:
         skills_used = [s.name for s, _ in skills]
         log.info("injecting %d skills for goal %r", len(skills_used), goal[:60])
 
+        from trishula.coding.loop import _SYSTEM_PROMPT
+
         loop = CodingLoop(
             self.workspace,
             client=self.client,
             config=self.cfg,
             journal=journal,
+            system_prompt=self.prompt_ev.augment_system_prompt(_SYSTEM_PROMPT),
         )
         report = self._run_with_skills(loop, goal, skills, max_steps=max_steps)
 
         # 2. reflect on hard signals
         retro = self.reflector.reflect(goal, journal, report=report.to_dict())
+
+        # 2b. self-improving prompt loop: distill durable guidance from retro
+        try:
+            new_rules = self.prompt_ev.learn(retro)
+            log.info("prompt evolution: %d rule(s) fired (%d active)",
+                     len(new_rules), len(self.prompt_ev.active_rules()))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("prompt evolution failed: %s", exc)
 
         # 3. update memory: record outcomes, distill new tactics, patch bad ones
         created: list[str] = []

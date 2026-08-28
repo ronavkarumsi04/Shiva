@@ -149,6 +149,34 @@ def cmd_selftest(args: argparse.Namespace) -> int:
     return 0 if result.wasSuccessful() else 1
 
 
+def cmd_studio(args: argparse.Namespace) -> int:
+    """Launch the Trishula Studio desktop app and open it in a browser."""
+    import webbrowser
+
+    from trishula.desktop.server import StudioServer
+
+    cfg = _config(args)
+    srv = StudioServer(config=cfg, host=args.host, port=args.port)
+    url = srv.start()
+    print(f"◆ Trishula Studio running at {url}")
+    print("  Chat mode = your advanced companion · Code mode = Shiva, the autonomous agent.")
+    print("  Press Ctrl+C to stop.")
+    if not getattr(args, "no_open", False):
+        try:
+            webbrowser.open(url)
+        except Exception:  # noqa: BLE001
+            pass
+    try:
+        import time
+
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        srv.stop()
+        print("\nStudio stopped.")
+    return 0
+
+
 def _workspace(args: argparse.Namespace):
     from trishula.tools.workspace import Workspace
     return Workspace(args.path)
@@ -263,6 +291,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp_test = sub.add_parser("selftest", help="run the trishula engine test suite")
     sp_test.set_defaults(func=cmd_selftest)
+
+    sp_studio = sub.add_parser("studio", help="launch the Trishula Studio desktop app (web UI)")
+    sp_studio.add_argument("--host", default="127.0.0.1")
+    sp_studio.add_argument("--port", type=int, default=8765)
+    sp_studio.add_argument("--no-open", action="store_true", dest="no_open")
+    sp_studio.set_defaults(func=cmd_studio, path=os.getcwd(), model="", provider="", max_steps=60)
 
     # ── Vishvakarma: multi-domain engineering ───────────────────────────
     sp_eng = sub.add_parser("eng", help="engineering: formulas, detection, safety gates, simulations")
