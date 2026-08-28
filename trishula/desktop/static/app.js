@@ -12,6 +12,7 @@ const state = {
   agent: null,          // current agent turn {body, glyph, status}
   pending: new Map(),   // tool call seq -> trace row
   toolSeq: 0,
+  hwAnswers: {},        // clarification answers for the hardware wizard
 };
 
 const SUGGEST = {
@@ -26,6 +27,12 @@ const SUGGEST = {
     ["/formulas", "browse the engineering formula catalogue"],
     ["/calc ohms_law i=0.5 r=100", "evaluate an engineering formula"],
     ["explain a concept", "dense, structured answers"],
+  ],
+  hw: [
+    ["custom FLAC audio player", "on-board speaker, volume knob, SD storage"],
+    ["smart environmental sensor", "temp/humidity/pressure → Wi-Fi + OLED"],
+    ["indoor drone quadcopter", "IMU + barometer + RC link + 4 motors"],
+    ["battery-powered data logger", "pick a platform, sensors, power"],
   ],
 };
 
@@ -87,6 +94,11 @@ function setMode(mode) {
     $("#crumbSub").textContent = s.chat_tagline || "advanced chat";
     $("#modeHint").textContent = "chat";
     $("#input").placeholder = `message ${s.chat_name || "saraswati"}…  (/ for commands)`;
+  } else if (mode === "hw") {
+    $("#modeCrumb").textContent = "vishvakarma";
+    $("#crumbSub").textContent = "text prompt → complete hardware build package";
+    $("#modeHint").textContent = "hardware";
+    $("#input").placeholder = "describe the device to build — e.g. a FLAC audio player, smart sensor, drone…";
   } else {
     $("#modeCrumb").textContent = s.agent_name || "shiva";
     $("#crumbSub").textContent = s.agent_tagline || "autonomous coding agent";
@@ -118,9 +130,12 @@ function renderWelcome() {
   const s = state.settings;
   const name = state.mode === "chat" ? (s.chat_name || "saraswati") : (s.agent_name || "shiva");
   const w = el("div", "welcome");
-  w.innerHTML = `<div class="wmark">▚ ${name}</div>
-    <h2>${state.mode === "chat" ? "ask anything" : `what should ${name} do?`}</h2>
-    <p>${state.mode === "chat"
+  const hwHead = state.mode === "hw";
+  w.innerHTML = `<div class="wmark">${hwHead ? "◈ vishvakarma" : `▚ ${name}`}</div>
+    <h2>${hwHead ? "describe the device to build" : state.mode === "chat" ? "ask anything" : `what should ${name} do?`}</h2>
+    <p>${hwHead
+      ? "one prompt becomes a complete, ready-to-build package — architecture & part selection, pin-to-pin wiring, BOM with part search, board layout, and assembly steps."
+      : state.mode === "chat"
       ? "a reasoning companion. dense answers, diagrams when they help."
       : "give a goal in the workspace below. I plan, edit, run tests, and repair — streaming every step."}</p>
     <div class="w-suggest"></div>`;
@@ -191,13 +206,22 @@ async function submit() {
   $("#welcome")?.remove();
   addUser(text);
   $("#input").value = ""; autosize();
+  state.chatHistory.push({ role: "user", content: text });
+
+  if (state.mode === "hw") {
+    const agent = startAgent(); state.agent = agent;
+    await hardwareFlow(text, agent);
+    loadConversations();
+    scrollDown();
+    return;
+  }
+
   state.busy = true; $("#goBtn").disabled = true;
   const agent = startAgent(); state.agent = agent;
 
   const body = state.mode === "chat"
     ? { message: text, history: state.chatHistory }
     : { goal: text, workspace: ws || state.settings.workspace || "." };
-  state.chatHistory.push({ role: "user", content: text });
 
   await stream(state.mode === "chat" ? "/api/chat" : "/api/code", body,
     (ev, data) => onEvent(ev, data, agent));
@@ -560,6 +584,206 @@ function insertDiagram() {
   scrollDown();
 }
 function fmtNum(v) { return typeof v === "number" ? (Math.abs(v) >= 1000 || (Math.abs(v) < 0.01 && v !== 0) ? v.toExponential(3) : String(Math.round(v * 1000) / 1000)) : esc(String(v)); }
+
+/* ── hardware engineering flow (vishvakarma) ──────────────────────────── */
+async function hardwareFlow(prompt, a) {
+  setStatus(a, "clarifying…");
+  const cl = await api("/api/hw/clarify", { method: "POST", body: JSON.stringify({ prompt }) });
+  state.hwAnswers = {};
+  // wizard
+  if (cl.questions && cl.questions.length) {
+    const wb = el("div", "hw-wizard");
+    wb.innerHTML = `<div class="hw-whead">◆ a few choices to size the design — type is detected: <b>${esc(cl.type?.type || "")}</b></div>
+      <div class="hw-qlist"></div>`;
+    const qlist = $(".hw-qlist", wb);
+    cl.questions.forEach((q) => {
+      const qel = el("div", "hw-q");
+      qel.innerHTML = `<div class="hw-qt">${esc(q.q)}</div><div class="hw-opts"></div>`;
+      const opts = $(".hw-opts", qel);
+      q.options.forEach((opt, i) => {
+        const b = el("button", "hw-opt" + (i === 0 ? " picked" : ""));
+        b.textContent = opt;
+        b.addEventListener("click", () => {
+          $$(".hw-opt", opts).forEach((x) => x.classList.remove("picked"));
+          b.classList.add("picked");
+          state.hwAnswers[q.id] = opt;
+        });
+        opts.appendChild(b);
+        if (i === 0) state.hwAnswers[q.id] = opt;
+      });
+      qlist.appendChild(qel);
+    });
+    const go = el("button", "btn-go wide"); go.textContent = "generate build package"; go.style.marginTop = "10px";
+    go.addEventListener("click", async () => { wb.remove(); await runHwPlan(prompt, a); });
+    wb.appendChild(go);
+    a.body.appendChild(wb);
+    setStatus(a, "");
+    scrollDown();
+    return;
+  }
+  await runHwPlan(prompt, a);
+}
+
+async function runHwPlan(prompt, a) {
+  setStatus(a, "selecting architecture & parts…");
+  const plan = await api("/api/hw/plan", {
+    method: "POST", body: JSON.stringify({ prompt, answers: state.hwAnswers }),
+  });
+  setStatus(a, "");
+  if (plan.error) { note(a.body, "✗ " + plan.error, "bad"); return; }
+  a.body.appendChild(hwHeader(plan));
+  a.body.appendChild(archBlock(plan));
+  a.body.appendChild(wiringBlock(plan));
+  a.body.appendChild(bomBlock(plan));
+  a.body.appendChild(boardBlock(plan));
+  a.body.appendChild(stepsBlock("assembly", plan.assembly, "🔩"));
+  a.body.appendChild(stepsBlock("bring-up & test", plan.tests, "✓"));
+  a.body.appendChild(certBlock(plan));
+  if (plan.notes && plan.notes.length) a.body.appendChild(notesBlock(plan.notes));
+  // markdown export
+  const bar = el("div", "hw-export");
+  const md = hwMarkdown(plan);
+  const btn = el("button", "btn-line"); btn.textContent = "⬇ download plan.md";
+  btn.addEventListener("click", () => {
+    const blob = new Blob([md], { type: "text/markdown" });
+    const u = URL.createObjectURL(blob);
+    const link = document.createElement("a"); link.href = u; link.download = slug(plan.title) + "-build-plan.md"; link.click();
+    URL.revokeObjectURL(u);
+  });
+  bar.appendChild(btn);
+  a.body.appendChild(bar);
+}
+function slug(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"hardware-plan";}
+
+function hwHeader(plan) {
+  const b = el("div", "hw-title");
+  b.innerHTML = `<div class="hw-t">${esc(plan.title)}</div>
+    <div class="hw-sub">platform <b>${esc(plan.platform.name)}</b> · ${plan.bom.length} BOM items · ${plan.wiring.length} connections
+    ${plan.power?.estimated_peak_mA ? ` · ≈${plan.power.estimated_peak_mA}mA peak` : ""}
+    ${plan.power?.estimated_runtime_min ? ` · ~${plan.power.estimated_runtime_min}min battery` : ""}</div>`;
+  return b;
+}
+function archBlock(plan) {
+  const lines = [];
+  plan.architecture.forEach((blk, i) => {
+    const id = `b${i}`;
+    lines.push(`${id}: ${blk.block}`);
+    if (i < plan.architecture.length - 1) lines.push(`b${i} -> b${i + 1}: ${blk.via}`);
+  });
+  return diagramBlock(lines, "system architecture", false);
+}
+
+/* wiring: grouped bus table + pin map */
+function wiringBlock(plan) {
+  const b = el("div", "eng open");
+  const conns = plan.wiring;
+  // group by protocol
+  const groups = {};
+  conns.forEach((c) => (groups[c.protocol] = groups[c.protocol] || []).push(c));
+  let rows = "";
+  const order = ["i2s", "i2c", "spi", "uart", "pwm", "gpio", "power"];
+  Object.keys(groups).sort((x, y) => order.indexOf(x) - order.indexOf(y)).forEach((proto) => {
+    rows += `<tr class="proto-row"><td colspan="3">${esc(proto.toUpperCase())}</td></tr>`;
+    groups[proto].forEach((c) => {
+      rows += `<tr><td class="mono">${esc(c.source_pin)}</td><td class="mono sig">${esc(c.signal)}</td>
+        <td class="mono">${esc(c.target)} · ${esc(c.target_pin)}</td></tr>`;
+    });
+  });
+  b.innerHTML = `<div class="ehead"><span class="et">⎇ wiring & pin map</span>
+    <span class="es">${esc(plan.platform.mcu)} — pin-to-pin</span></div>
+    <div class="ebody no-pad">
+      <table class="wtable">
+        <thead><tr><th>${esc(plan.platform.mcu)}</th><th>signal</th><th>peripheral</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      ${(plan.rails || []).map(r => `<div class="rail">⚡ ${esc(r.rail)} — ${esc(r.note)}</div>`).join("")}
+    </div>`;
+  return b;
+}
+
+function bomBlock(plan) {
+  const b = el("div", "eng open");
+  b.innerHTML = `<div class="ehead"><span class="et">▤ bill of materials</span>
+    <span class="es">${plan.bom.length} line items — links open supplier search</span></div>
+    <div class="ebody no-pad"><table class="wtable bom">
+      <thead><tr><th>ref</th><th>qty</th><th>part</th><th></th></tr></thead><tbody>
+      ${plan.bom.map(it => `<tr>
+        <td class="mono">${esc(it.ref)}</td><td class="mono">${it.qty}</td>
+        <td>${esc(it.name)}${it.note ? ` <span class="dim">— ${esc(it.note)}</span>` : ""}</td>
+        <td class="r"><a href="${esc(it.search_url)}" target="_blank" rel="noopener" class="bomlink">find ↗</a></td></tr>`).join("")}
+      </tbody></table></div>`;
+  return b;
+}
+
+/* board / CAD: scaled SVG placement */
+function boardBlock(plan) {
+  const bd = plan.board; const sx = 4.2;
+  const W = bd.width_mm * sx, H = bd.height_mm * sx;
+  let parts = "";
+  bd.parts.forEach((p, i) => {
+    const x = p.x * sx, y = p.y * sx, w = p.w * sx, h = p.h * sx;
+    parts += `<g><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5"
+      class="${i === 0 ? "b-mcu" : "b-part"}"/>
+      <text x="${x + w / 2}" y="${y + h / 2 - 2}" text-anchor="middle" class="b-label">${esc(p.label)}</text>
+      <text x="${x + w / 2}" y="${y + h / 2 + 11}" text-anchor="middle" class="b-sub">${esc(p.sub || "")}</text></g>`;
+  });
+  const holes = bd.mount_holes.map(m => `<circle cx="${m.x * sx + 4}" cy="${m.y * sx + 4}" r="3.2" class="b-hole"/>`).join("");
+  const b = el("div", "eng open");
+  b.innerHTML = `<div class="ehead"><span class="et">▢ board layout / placement</span>
+    <span class="es">${bd.width_mm}×${bd.height_mm}mm · ${esc(bd.shape)} (concept placement)</span></div>
+    <div class="ebody"><svg viewBox="0 0 ${W + 10} ${H + 10}" width="100%" style="max-width:560px" xmlns="http://www.w3.org/2000/svg">
+      <rect x="5" y="5" width="${W}" height="${H}" rx="10" class="b-board"/>
+      ${holes}${parts}</svg></div>`;
+  return b;
+}
+
+function stepsBlock(title, steps, glyph) {
+  const b = el("div", "eng");
+  b.innerHTML = `<div class="ehead"><span class="et">${glyph} ${esc(title)}</span><span class="es">${steps.length} steps</span></div>
+    <div class="ebody">${steps.map((s, i) => `<div class="step"><span class="step-n">${i + 1}</span><span>${esc(s)}</span></div>`).join("")}</div>`;
+  $(".ehead", b).addEventListener("click", () => b.classList.toggle("collapsed"));
+  return b;
+}
+function certBlock(plan) {
+  const b = el("div", "eng");
+  b.innerHTML = `<div class="ehead"><span class="et">🛡 certification & safety</span><span class="es">external gates flagged honestly</span></div>
+    <div class="ebody">${plan.certifications.map(c => {
+      const cls = c.status === "external" ? "g-fail" : "g-warn";
+      return `<div class="gline"><span class="gi ${cls}">${c.status === "external" ? "⚑" : "⚠"}</span>
+        <span><b>${esc(c.gate)}</b> <span class="dim">[${esc(c.status)}] — ${esc(c.note)}</span></span></div>`;
+    }).join("")}</div>`;
+  $(".ehead", b).addEventListener("click", () => b.classList.toggle("collapsed"));
+  return b;
+}
+function notesBlock(notes) {
+  const b = el("div", "eng open");
+  b.innerHTML = `<div class="ehead"><span class="et">◆ design rationale</span></div>
+    <div class="ebody">${notes.map(n => `<div class="step"><span class="step-n">•</span><span>${esc(n)}</span></div>`).join("")}</div>`;
+  return b;
+}
+
+function hwMarkdown(plan) {
+  const L = [];
+  L.push(`# ${plan.title}`, "");
+  L.push(`**Platform:** ${plan.platform.name} (${plan.platform.arch})  `);
+  L.push(`**Est. peak current:** ${plan.power.estimated_peak_mA} mA ${plan.power.note ? `(${plan.power.note})` : ""}  `);
+  if (plan.power.battery) L.push(`**Battery:** ${plan.power.battery} — est. ${plan.power.estimated_runtime_min} min  `);
+  L.push("", "## Architecture", "");
+  plan.architecture.forEach(b => L.push(`- **${b.block}** — ${b.role} _(via ${b.via})_`));
+  L.push("", "## Wiring / pin map", "", `| ${plan.platform.mcu} pin | signal | peripheral |`, "|---|---|---|");
+  plan.wiring.forEach(c => L.push(`| ${c.source_pin} | ${c.signal} | ${c.target} · ${c.target_pin} |`));
+  L.push("", "## Bill of materials", "", "| ref | qty | part | search |", "|---|---|---|---|");
+  plan.bom.forEach(it => L.push(`| ${it.ref} | ${it.qty} | ${it.name} | ${it.search_url} |`));
+  L.push("", "## Assembly", "");
+  plan.assembly.forEach((s, i) => L.push(`${i + 1}. ${s}`));
+  L.push("", "## Bring-up & test", "");
+  plan.tests.forEach(s => L.push(`- [ ] ${s}`));
+  L.push("", "## Certification & safety", "");
+  plan.certifications.forEach(c => L.push(`- **${c.gate}** [${c.status}] — ${c.note}`));
+  if (plan.notes && plan.notes.length) { L.push("", "## Design rationale", ""); plan.notes.forEach(n => L.push(`- ${n}`)); }
+  L.push("", "_Generated by Vishvakarma. Verify all pinouts against current datasheets; links are supplier searches, not endorsements._");
+  return L.join("\n");
+}
 
 /* ── conversations ────────────────────────────────────────────────────── */
 async function loadConversations() {

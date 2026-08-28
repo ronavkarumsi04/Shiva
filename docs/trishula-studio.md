@@ -82,3 +82,37 @@ of text:
 - **Honest** — test, coverage, and simulation results come from real runs; the
   UI never invents metrics. Offline/stub mode is labeled, not faked.
 - **Customizable** — rename both agents, theme the whole app, set a persona.
+
+## Hardware engineering flow — Vishvakarma
+
+The third mode (**vishvakarma**, tab `3`) turns a text prompt into a complete,
+ready-to-build electronics package. The pipeline is
+`prompt → AI clarification → architecture & part selection → package`:
+
+1. **Text prompt** — e.g. *"a custom FLAC audio player"*, *"a smart sensor"*,
+   *"an indoor drone"*.
+2. **Clarification** — the engine asks a few multiple-choice questions
+   (experience level, power source, output/link/airframe). It classifies the
+   project type from the prompt and only asks what matters.
+3. **Architecture & selection** — picks a platform (RP2040 / ESP32 / ATmega328P
+   / Raspberry Pi SBC) and real parts from `engineering/components.py`, with a
+   conflict-free pin allocator for I2C / I2S / SPI / UART / PWM / GPIO and a
+   power/battery estimate.
+4. **Output package**:
+   - **System architecture** rendered as a diagram.
+   - **Wiring & pin map** — a pin-to-pin table grouped by bus (SDA/SCL, BCLK/
+     LRCLK/DIN, SCK/MOSI/MISO/CS, …) with rail notes.
+   - **BOM** — reference designators, quantities, real part names, and
+     **supplier search** links (Octopart search — never fabricated product
+     URLs).
+   - **Board/layout view** — a scaled placement SVG (concept enclosure/PCB).
+   - **Assembly** and **bring-up/test** steps, numbered and collapsible.
+   - **Certification & safety** — battery/UN38.3, drone registration/Remote-ID,
+     and EMC/RF gates flagged as external/manual (never claimed as met).
+   - **Download `plan.md`** — the whole package as build documentation.
+
+The engine is deterministic offline (a curated catalogue + allocator); a
+configured model only enriches the design rationale — parts and pins always
+come from the real catalogue, so nothing is invented. Backend:
+`POST /api/hw/clarify`, `POST /api/hw/plan` (`engineering/planner.py`,
+`engineering/components.py`).

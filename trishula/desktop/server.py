@@ -34,6 +34,8 @@ Endpoints
 ``POST /api/eng/calc``           evaluate a formula {name, args}
 ``GET  /api/eng/gates``          certification gate catalogue
 ``POST /api/eng/gate``           evaluate a gate against a workspace
+``POST /api/hw/clarify``         clarification questions for a hardware idea
+``POST /api/hw/plan``            full hardware build package (BOM/wiring/layout)
 """
 
 from __future__ import annotations
@@ -482,6 +484,34 @@ class StudioServer:
                         report = evaluate_gate(key, workspace=ws)
                         return self._json(report.to_dict())
                     except Exception as exc:  # noqa: BLE001
+                        return self._json({"error": f"{type(exc).__name__}: {exc}"}, 400)
+
+                if url.path == "/api/hw/clarify":
+                    try:
+                        from trishula.engineering.planner import clarify, classify
+                        prompt = body.get("prompt", "")
+                        return self._json({
+                            "type": classify(prompt),
+                            "questions": clarify(prompt),
+                        })
+                    except Exception as exc:  # noqa: BLE001
+                        return self._json({"error": f"{type(exc).__name__}: {exc}"}, 400)
+
+                if url.path == "/api/hw/plan":
+                    try:
+                        from trishula.engineering.planner import build_plan
+                        from trishula.llm import get_client
+                        prompt = body.get("prompt", "")
+                        if not prompt.strip():
+                            return self._json({"error": "prompt is required"}, 400)
+                        answers = body.get("answers") or {}
+                        use_llm = bool(body.get("enrich", True))
+                        client = get_client(studio.cfg)
+                        client = client if (use_llm and client.name != "stub") else None
+                        plan = build_plan(prompt, answers, client=client)
+                        return self._json(plan.to_dict())
+                    except Exception as exc:  # noqa: BLE001
+                        log.warning("hw plan failed: %s", exc)
                         return self._json({"error": f"{type(exc).__name__}: {exc}"}, 400)
 
                 return self._json({"error": "not found"}, 404)

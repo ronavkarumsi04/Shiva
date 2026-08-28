@@ -276,3 +276,46 @@ button{font-family:var(--font);}
   .side.open{transform:none;}
   .only-mob{display:inline-block;}
 }
+
+/* ── hardware flow (vishvakarma) ────────────────────────────────── */
+.hw-title{margin:6px 0 4px;}
+.hw-title .hw-t{font-size:15px;font-weight:700;}
+.hw-title .hw-sub{color:var(--fg3);font-size:12px;margin-top:2px;}
+.hw-wizard{border:1px solid var(--border2);border-radius:var(--radius);background:var(--bg2);padding:14px;margin:8px 0;}
+.hw-whead{font-size:12.5px;color:var(--fg2);margin-bottom:12px;}
+.hw-q{margin-bottom:12px;}
+.hw-qt{font-size:12.5px;font-weight:600;margin-bottom:6px;}
+.hw-opts{display:flex;flex-wrap:wrap;gap:6px;}
+.hw-opt{background:var(--bg);border:1px solid var(--border);color:var(--fg2);border-radius:var(--radius);
+  padding:5px 11px;font-size:12px;cursor:pointer;text-align:left;font-family:var(--font);}
+.hw-opt:hover{border-color:var(--border2);color:var(--fg);}
+.hw-opt.picked{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
+
+/* wiring / BOM tables */
+.eng .ebody.no-pad{padding:0;}
+table.wtable{width:100%;border-collapse:collapse;font-size:12px;}
+table.wtable th{text-align:left;color:var(--fg3);font-weight:600;padding:6px 12px;border-bottom:1px solid var(--border);
+  text-transform:uppercase;letter-spacing:.5px;font-size:10.5px;}
+table.wtable td{padding:3px 12px;border-bottom:1px solid var(--border);color:var(--fg2);vertical-align:top;}
+table.wtable td.r{text-align:right;white-space:nowrap;}
+table.wtable tr.proto-row td{color:var(--accent);font-weight:700;padding-top:9px;text-transform:uppercase;
+  letter-spacing:1px;font-size:10.5px;border-bottom:1px solid var(--border2);}
+table.wtable td.mono{white-space:nowrap;}
+table.wtable td.sig{color:var(--fg);font-weight:600;}
+.bomlink{color:var(--accent);text-decoration:none;white-space:nowrap;}
+.bomlink:hover{text-decoration:underline;}
+.rail{padding:7px 12px;color:var(--fg3);font-size:11.5px;border-top:1px solid var(--border);}
+
+/* board layout SVG */
+.b-board{fill:none;stroke:var(--border2);stroke-width:1.5;stroke-dasharray:4 3;}
+.b-hole{fill:var(--bg);stroke:var(--fg3);stroke-width:1;}
+.b-part{fill:var(--bg3);stroke:var(--border2);stroke-width:1;}
+.b-mcu{fill:var(--accent-dim);stroke:var(--accent);stroke-width:1.2;}
+.b-label{fill:var(--fg);font-family:var(--font);font-size:10.5px;font-weight:600;}
+.b-sub{fill:var(--fg3);font-family:var(--font);font-size:8.5px;}
+
+/* assembly steps */
+.step{display:flex;gap:10px;align-items:flex-start;padding:3px 0;font-size:12.5px;color:var(--fg2);}
+.step-n{flex:none;min-width:18px;height:18px;border:1px solid var(--border2);border-radius:4px;display:grid;
+  place-items:center;font-size:11px;color:var(--accent);}
+.hw-export{margin:10px 0;display:flex;gap:8px;}
