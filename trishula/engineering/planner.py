@@ -521,6 +521,7 @@ def build_plan(prompt: str, answers: dict[str, str] | None = None,
         d = c.to_dict()
         bom.append({
             "ref": f"{prefix}{ref_n[prefix]}", "qty": c.qty, "name": c.name,
+            "cid": c.cid,
             "category": c.category, "keywords": c.keywords, "search_url": d["search_url"],
             "note": c.note,
         })

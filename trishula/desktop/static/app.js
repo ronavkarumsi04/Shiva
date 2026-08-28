@@ -804,16 +804,40 @@ async function wiringSchematicBlock(prompt, answers) {
     });
     const svg = await r.text();
     $(".ebody", b).innerHTML = svg.includes("<svg") ? svg : "<span class='dim'>unavailable</span>";
+    bindWireHighlight($(".ebody", b));
   } catch { $(".ebody", b).innerHTML = "<span class='dim'>unavailable</span>"; }
   return b;
+}
+/* interactive wiring whiteboard: hover a wire -> highlight every wire of that net */
+function bindWireHighlight(scope) {
+  const groups = $$(".net", scope);
+  groups.forEach((g) => {
+    g.style.cursor = "pointer";
+    g.addEventListener("mouseenter", () => setNet(g.dataset.net, true, scope));
+    g.addEventListener("mouseleave", () => setNet(g.dataset.net, false, scope));
+  });
+}
+function setNet(net, on, scope) {
+  $$(".net", scope).forEach((g) => {
+    const match = g.dataset.net === net;
+    g.classList.toggle("net-hot", on && match);
+    g.classList.toggle("net-dim", on && !match);
+  });
 }
 function artifactsBlock(prompt, answers) {
   const arts = [
     ["firmware_arduino", "Arduino .ino", "firmware skeleton with the exact pin map"],
     ["firmware_mp", "MicroPython .py", "machine.I2C/SPI/I2S bring-up skeleton"],
+    ["firmware_ci", "firmware CI .yml", "GitHub Actions: arduino-cli compile-check"],
     ["netlist_csv", "netlist .csv", "net → pin connections for any CAD tool"],
     ["netlist_kicad", "KiCad .net", "Eeschema-style netlist skeleton"],
+    ["cpl", "pick-and-place .csv", "centroid/CPL placement from the board view"],
+    ["bom_csv", "BOM .csv", "generic fabrication bill of materials"],
+    ["bom_lcsc", "BOM LCSC/JLC", "LCSC/JLC-style import columns"],
+    ["bom_mouser", "BOM Mouser", "Mouser cart-style columns"],
+    ["bom_digikey", "BOM Digi-Key", "Digi-Key-style columns"],
     ["scad", "enclosure .scad", "parametric printable case (OpenSCAD → STL)"],
+    ["gerber_note", "PCB hand-off .md", "how to go from netlist to Gerbers"],
   ];
   const b = el("div", "eng open");
   b.innerHTML = `<div class="ehead"><span class="et">⬇ generate & download</span>
@@ -836,8 +860,11 @@ async function downloadArtifact(kind, prompt, answers) {
   const cd = r.headers.get("Content-Disposition") || "";
   const m = cd.match(/filename="?([^"]+)"?/);
   const text = await r.text();
-  const ext = { firmware_arduino: ".ino", firmware_mp: ".py", netlist_csv: ".csv", netlist_kicad: ".net", scad: ".scad" }[kind] || ".txt";
-  const ctype = { netlist_csv: "text/csv", scad: "text/x-scad" }[kind] || "text/plain";
+  const ext = { firmware_arduino: ".ino", firmware_mp: ".py", netlist_csv: ".csv", netlist_kicad: ".net",
+    scad: ".scad", cpl: ".csv", bom_csv: ".csv", bom_lcsc: ".csv", bom_mouser: ".csv", bom_digikey: ".csv",
+    firmware_ci: ".yml", gerber_note: ".md" }[kind] || ".txt";
+  const ctype = (kind.startsWith("bom") || kind === "cpl" || kind === "netlist_csv") ? "text/csv"
+    : kind === "scad" ? "text/x-scad" : kind === "firmware_ci" ? "text/yaml" : "text/plain";
   downloadText(m ? m[1] : ("artifact" + ext), text, ctype);
 }
 function downloadText(filename, text, type) {

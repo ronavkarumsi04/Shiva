@@ -218,6 +218,46 @@ class PlannerEndpointTests(unittest.TestCase):
                                      {"kind": "bogus", "prompt": "x"})
         self.assertEqual(st, 400)
 
+    def test_fabrication_artifacts(self):
+        for kind, needle in (("bom_lcsc", "Designator"), ("bom_mouser", "Part Number"),
+                             ("cpl", "Mid X"), ("firmware_ci", "arduino-cli compile"),
+                             ("gerber_note", "Gerber")):
+            st, _, body = self._raw_post("/api/hw/artifact",
+                                         {"kind": kind, "prompt": "FLAC audio player"})
+            self.assertEqual(st, 200, kind)
+            self.assertIn(needle, body)
+
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FabricationTests(unittest.TestCase):
+    def setUp(self):
+        self.plan = build_plan("custom FLAC audio player with speaker and volume knob")
+
+    def test_bom_variants(self):
+        from trishula.engineering.fabrication import bom_csv
+        for vendor, needle in (("generic", "search_url"), ("lcsc", "Designator"),
+                               ("mouser", "Part Number"), ("digikey", "Reference Designators")):
+            txt = bom_csv(self.plan, vendor)
+            self.assertIn(needle, txt.splitlines()[0])
+            self.assertGreater(txt.count("\n"), 2)
+
+    def test_cpl_has_centroids(self):
+        from trishula.engineering.fabrication import cpl_csv
+        txt = cpl_csv(self.plan)
+        self.assertIn("Mid X", txt.splitlines()[0])
+        self.assertIn("MCU", txt)
+
+    def test_ci_workflow_compiles_for_board(self):
+        from trishula.engineering.fabrication import firmware_ci_workflow
+        ci = firmware_ci_workflow(self.plan)
+        self.assertIn("jobs:", ci)
+        self.assertIn("arduino-cli compile", ci)
+        self.assertNotIn("\t", ci)  # YAML uses spaces
+
+    def test_gerber_note_is_honest(self):
+        from trishula.engineering.fabrication import gerber_readme
+        note = gerber_readme(self.plan).lower()
+        self.assertIn("not gerber", note)

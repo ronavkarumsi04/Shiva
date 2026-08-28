@@ -331,3 +331,10 @@ table.wtable td.sig{color:var(--fg);font-weight:600;}
 .art-cell .art-label{font-weight:600;font-size:12.5px;}
 .art-cell .art-sub{font-size:11px;margin-top:2px;}
 table.wtable td b{color:var(--fg);}
+
+/* interactive wiring whiteboard */
+.dcanvas svg .net{transition:opacity .12s;}
+.dcanvas svg .net .net-wire{transition:stroke-width .12s,opacity .12s;}
+.dcanvas svg .net.net-hot .net-wire{stroke-width:3.4;opacity:1;}
+.dcanvas svg .net.net-hot .net-lbl{font-weight:700;}
+.dcanvas svg .net.net-dim{opacity:.18;}

@@ -126,7 +126,8 @@ def wiring_schematic(plan) -> str:
     out.append(f'<text x="{mcu_x+mcu_w/2}" y="{top+6}" text-anchor="middle" class="t ts">'
                f'{plan.platform["mcu"]}</text>')
 
-    # module boxes + routes
+    # module boxes + routes; each net is a <g class="net" data-net="SIGNAL"> so the
+    # UI can highlight the whole net (wire + end labels) on hover.
     for i, name in enumerate(mod_names):
         cy = top + i * row_h
         pins = modules[name]
@@ -134,20 +135,19 @@ def wiring_schematic(plan) -> str:
                    'fill="var(--bg3,#1a1e25)" stroke="var(--border2,#333)"/>')
         out.append(f'<text x="{mod_x+10}" y="{cy}" class="t ts">{_esc(_short(name,26))}</text>')
         out.append(f'<text x="{mod_x+10}" y="{cy+12}" class="t tg">{len(pins)} wires</text>')
-        # route each signal
         for j, c in enumerate(pins):
             color = BUS_COLORS.get(c["protocol"], "#888")
-            y = cy + j * 0  # collapse to anchor for clarity; stagger slight
-            src_y = top + 14 + (i * 4) % max(1, mcu_h - 20)
+            net = _net_id(c["signal"])
             x1 = mcu_x + mcu_w
             x2 = mod_x
             midx = (x1 + x2) / 2
+            out.append(f'<g class="net" data-net="{net}">')
             out.append(
-                f'<path d="M{x1} {cy-6} C {midx} {cy-6}, {midx} {cy-6}, {x2} {cy-6}" '
+                f'<path class="net-wire" d="M{x1} {cy-6} C {midx} {cy-6}, {midx} {cy-6}, {x2} {cy-6}" '
                 f'fill="none" stroke="{color}" stroke-width="1.6" opacity="0.85"/>')
-            # labels near each end
-            out.append(f'<text x="{x1+6}" y="{cy-9}" class="t tg" fill="{color}">{_esc(c["source_pin"])}</text>')
-            out.append(f'<text x="{x2-6}" y="{cy-9}" text-anchor="end" class="t tg" fill="{color}">{_esc(c["target_pin"])}</text>')
+            out.append(f'<text class="net-lbl t tg" x="{x1+6}" y="{cy-9}" fill="{color}">{_esc(c["source_pin"])}</text>')
+            out.append(f'<text class="net-lbl t tg" x="{x2-6}" y="{cy-9}" text-anchor="end" fill="{color}">{_esc(c["target_pin"])}</text>')
+            out.append('</g>')
 
     # legend
     lx = mcu_x; ly = h - 14
@@ -169,3 +169,9 @@ def _esc(s: str) -> str:
 
 def _short(s: str, n: int) -> str:
     return s if len(s) <= n else s[: n - 1] + "…"
+
+
+def _net_id(signal: str) -> str:
+    """Stable, HTML-safe net key shared by all wires of one signal."""
+    s = str(signal).lower().replace("→", "to").replace(" ", "_").replace("/", "_")
+    return "".join(ch for ch in s if ch.isalnum() or ch in "_-")

@@ -576,6 +576,18 @@ def build_artifact(plan, kind: str) -> str | None:
     if kind == "wiring_svg":
         from trishula.engineering.cad import wiring_schematic
         return wiring_schematic(plan)
+    # fabrication / hand-off exports
+    from trishula.engineering import fabrication as fab
+    if kind in ("bom_csv", "bom_lcsc", "bom_mouser", "bom_digikey"):
+        vendor = {"bom_csv": "generic", "bom_lcsc": "lcsc",
+                  "bom_mouser": "mouser", "bom_digikey": "digikey"}[kind]
+        return fab.bom_csv(plan, vendor)
+    if kind == "cpl":
+        return fab.cpl_csv(plan)
+    if kind == "firmware_ci":
+        return fab.firmware_ci_workflow(plan)
+    if kind == "gerber_note":
+        return fab.gerber_readme(plan)
     return None
 
 
@@ -588,6 +600,13 @@ def artifact_filename(kind: str, plan) -> str:
         "netlist_csv": f"{slug}-netlist.csv",
         "netlist_kicad": f"{slug}.net",
         "scad": f"{slug}-enclosure.scad",
+        "bom_csv": f"{slug}-bom.csv",
+        "bom_lcsc": f"{slug}-bom-lcsc.csv",
+        "bom_mouser": f"{slug}-bom-mouser.csv",
+        "bom_digikey": f"{slug}-bom-digikey.csv",
+        "cpl": f"{slug}-pickandplace-cpl.csv",
+        "firmware_ci": "hardware-firmware-ci.yml",
+        "gerber_note": f"{slug}-PCB-handoff.md",
     }.get(kind, f"{slug}.txt")
 
 
