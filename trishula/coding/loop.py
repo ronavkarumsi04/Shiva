@@ -202,12 +202,18 @@ class CodingLoop:
             if stop:
                 break
 
-        # ── mandatory verification ──────────────────────────────────────
+        # ── mandatory verification (phase 2: properties + coverage) ─────
         changed = self.edit_engine.changed_files or self.ws.changed_files
         verification = None
         ok = False
         if changed:
             verification = self.verifier.verify(changed)
+            if verification.feedback:
+                # Coverage gaps / property violations become actionable input.
+                messages.append(Message.user(
+                    "Verification feedback — strengthen before finishing:\n"
+                    + verification.feedback
+                ))
             if verification.verdict == Verdict.FAIL and steps < max_steps:
                 # One closed-loop repair attempt: feed failures back.
                 messages.append(Message.user(

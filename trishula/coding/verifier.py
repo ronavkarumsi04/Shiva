@@ -62,6 +62,10 @@ class VerificationResult:
     failures: list[TestFailure] = field(default_factory=list)
     commands: list[dict[str, Any]] = field(default_factory=list)
     changed_files: list[str] = field(default_factory=list)
+    # phase 2
+    property_results: list[dict[str, Any]] = field(default_factory=list)
+    coverage: dict[str, Any] | None = None
+    feedback: str = ""   # machine-actionable hints fed back to the coding loop
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -88,6 +92,11 @@ class Verifier:
         result = VerificationResult(verdict=Verdict.SKIPPED, changed_files=changed)
         log.info("verifying %d changed files", len(changed))
 
+        # Optional: scaffold smoke/property tests for newly changed functions.
+        generated: list[str] = []
+        if self.cfg.auto_generate_tests:
+            generated = self._scaffold_tests(changed)
+
         # 1. syntax
         py_files = [f for f in changed if f.endswith(".py")]
         if py_files:
@@ -103,8 +112,10 @@ class Verifier:
                 self._emit(result)
                 return result
 
-        # 2. tests
+        # 2. tests (generated scaffolds count toward detection + runs)
         runner = self._detect_test_runner()
+        if generated and not runner:
+            runner = "py-stdlib"
         if runner:
             tr = self._run_tests(runner, changed)
             result.commands.append(tr.get("cmd", ""))
@@ -127,8 +138,93 @@ class Verifier:
             result.verdict = Verdict.PASS if result.syntax_ok else Verdict.FAIL
             result.summary = "syntax OK" if result.syntax_ok else "syntax failed"
 
+        # 3. Phase 2 — property testing + statement coverage feedback.
+        if result.verdict in (Verdict.PASS, Verdict.PARTIAL):
+            self._phase2(result, changed, generated)
+
         self._emit(result)
         return result
+
+    # ── phase 2: property tests + coverage ──────────────────────────────
+
+    def _scaffold_tests(self, changed: list[str]) -> list[str]:
+        """Generate smoke/property test files for changed modules."""
+        from trishula.coding.testgen import generate_tests
+
+        try:
+            mapping = generate_tests(self.ws, changed, write=True)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("test scaffolding failed: %s", exc)
+            return []
+        return list(mapping.values())
+
+    def _phase2(self, result: VerificationResult, changed: list[str],
+                generated: list[str]) -> None:
+        """Property tests tighten correctness; coverage feeds back gaps."""
+        feedback: list[str] = []
+
+        if self.cfg.verify_property_tests:
+            props = self._run_property_tests(generated)
+            result.property_results = props
+            failing = [p for p in props if not p["ok"]]
+            for p in failing:
+                feedback.append(
+                    f"Property {p['name']} violated: {p.get('error', '')} — add an "
+                    "edge-case guard and a regression assertion."
+                )
+            if failing:
+                result.verdict = Verdict.PARTIAL
+                result.tests_failed += len(failing)
+
+        if self.cfg.verify_coverage:
+            cov = self._measure_coverage(changed, generated)
+            if cov is not None:
+                result.coverage = cov.to_dict()
+                for path, data in cov.files.items():
+                    pct = data["covered"] / data["statements"] if data["statements"] else 1.0
+                    if pct < self.cfg.coverage_min_pct and data["missing"]:
+                        shown = ", ".join(str(n) for n in data["missing"][:12])
+                        feedback.append(
+                            f"{path} is {pct:.0%} covered by tests; uncovered lines "
+                            f"around {shown} — add tests that exercise them."
+                        )
+
+        result.feedback = "\n".join(feedback)
+        if result.feedback and self.journal:
+            self.journal.emit(EventKind.VERDICT, coverage=result.coverage,
+                              feedback=result.feedback)
+
+    def _run_property_tests(self, test_files: list[str]) -> list[dict[str, Any]]:
+        from trishula.coding.proplib import run_property_file
+
+        results: list[dict[str, Any]] = []
+        for rel in test_files:
+            try:
+                for r in run_property_file(str(self.ws.resolve(rel))):
+                    results.append(r.to_dict())
+            except Exception as exc:  # noqa: BLE001
+                results.append({"name": rel, "ok": False, "error": f"{type(exc).__name__}: {exc}"})
+        return results
+
+    def _measure_coverage(self, changed: list[str], generated: list[str]):
+        from trishula.coding.coverage import measure_coverage
+
+        sources = [f for f in changed if f.endswith(".py") and "test" not in f]
+        # Tests to exercise: existing test files changed plus discovered suite.
+        test_files = [f for f in changed if "test" in f and f.endswith(".py")] + generated
+        if not test_files:
+            test_files = [
+                self.ws.rel(p) for p in self.ws.root.glob("test_*.py")
+            ]
+        if not sources or not test_files:
+            return None
+        try:
+            return measure_coverage(
+                self.shell, sources, test_files, timeout=self.cfg.verify_test_timeout
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("coverage measurement failed: %s", exc)
+            return None
 
     # ── runners ─────────────────────────────────────────────────────────
 

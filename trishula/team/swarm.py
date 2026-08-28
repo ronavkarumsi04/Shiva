@@ -88,7 +88,8 @@ class Blackboard:
 
 class Worker(Protocol):
     name: str
-    def perform(self, task: Task, plan: Plan, board: Blackboard) -> str: ...
+    def perform(self, task: Task, plan: Plan, board: Blackboard, *,
+                workspace: "object | None" = None) -> str: ...
 
 
 @dataclass
@@ -96,12 +97,21 @@ class DeterministicWorker:
     """Offline worker: maps role → a callable action (used in stub mode/tests)."""
 
     name: str = "deterministic"
-    actions: dict[str, Callable[[Task, Blackboard], str]] = field(default_factory=dict)
+    actions: dict[str, Callable[..., str]] = field(default_factory=dict)
 
-    def perform(self, task: Task, plan: Plan, board: Blackboard) -> str:
+    def perform(self, task: Task, plan: Plan, board: Blackboard, *,
+                workspace: "object | None" = None) -> str:
         action = self.actions.get(task.assignee)
         if action is not None:
-            out = action(task, board)
+            try:
+                out = action(task, board, workspace)
+            except TypeError as exc:
+                # tolerate action callbacks written for the (task, board)
+                # signature before workspaces existed
+                if "positional argument" in str(exc):
+                    out = action(task, board)
+                else:
+                    raise
         else:
             out = self._default(task, board)
         board.append_findings(f"{task.assignee}:{task.title[:40]}", out)
@@ -138,16 +148,16 @@ class LocalAgentWorker:
         self.cfg = config or TrishulaConfig()
         self.journal = journal
 
-    def perform(self, task: Task, plan: Plan, board: Blackboard) -> str:
+    def perform(self, task: Task, plan: Plan, board: Blackboard, *,
+                workspace: Workspace | None = None) -> str:
         from trishula.coding.loop import CodingLoop
         from trishula.llm import get_client
         from trishula.tools.builtin import build_registry
         from trishula.tools.shell import Shell
-        from trishula.tools.workspace import Workspace
 
         roles = RoleCatalog()
         role = roles.get(task.assignee)
-        ws = Workspace(self.workspace)
+        ws = workspace or Workspace(self.workspace)
         shell = Shell(
             ws.root,
             timeout=self.cfg.shell_timeout_default,
@@ -249,6 +259,20 @@ class Swarm:
             self.workspace, client=client, config=self.cfg, journal=self.journal
         )
         self.results: dict[str, TaskResult] = {}
+        self._pool_lock = threading.Lock()
+        self._pool = None
+        if self.cfg.team_use_worktrees:
+            try:
+                from trishula.team.worktree import WorktreePool
+
+                self._pool = WorktreePool(
+                    self.workspace, max_worktrees=max(1, self.cfg.team_max_workers),
+                    journal=self.journal,
+                )
+                if not self._pool.is_git:
+                    self._pool = None  # degrade to in-place on non-git repos
+            except Exception:  # noqa: BLE001
+                self._pool = None
 
     def execute(self) -> SwarmReport:
         start = time.monotonic()
@@ -289,6 +313,8 @@ class Swarm:
             decisions=self.board.read()["decisions"],
             board=self.board.read(),
         )
+        if self._pool is not None:
+            self._pool.cleanup()
         log.info("swarm finished in %.1fs ok=%s failed=%d", time.monotonic() - start, ok, len(report.failed_tasks))
         return report
 
@@ -301,9 +327,24 @@ class Swarm:
             EventKind.TASK_STARTED, task=task.title, role=task.assignee, attempt=task.attempts
         )
         start = time.monotonic()
+        isolated = False
+        wt = None
         try:
-            output = self.worker.perform(task, self.plan, self.board)
+            ws = None
+            if self._pool is not None:
+                with self._pool_lock:
+                    ws, isolated = self._pool.acquire(task.id)
+                wt = ws
+            output = self.worker.perform(task, self.plan, self.board, workspace=ws)
             duration = (time.monotonic() - start) * 1000
+            if isolated and self._pool is not None:
+                with self._pool_lock:
+                    self._pool.commit_worker_changes(task.id, message=f"Trishula {task.assignee}: {task.title[:60]}")
+                    wtres = self._pool.complete(task.id, merge=True)
+                if not wtres.ok and wtres.conflict_files:
+                    raise TeamError(
+                        f"worktree merge conflict in {', '.join(wtres.conflict_files[:5])}"
+                    )
 
             # Review gate: reviewer may request changes -> reopen deps.
             if task.assignee == "reviewer" and output.upper().startswith("REVIEW: REJECT"):
@@ -329,6 +370,12 @@ class Swarm:
                 ok=result.status == TaskStatus.DONE,
             )
         except Exception as exc:  # noqa: BLE001
+            if isolated and self._pool is not None and task.id in self._pool._active:
+                with self._pool_lock:
+                    try:
+                        self._pool.complete(task.id, merge=False)
+                    except Exception:  # noqa: BLE001
+                        pass
             self._fail(task, f"{type(exc).__name__}: {exc}")
 
     def _fail(self, task: Task, error: str) -> None:

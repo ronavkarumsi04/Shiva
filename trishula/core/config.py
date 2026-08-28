@@ -58,6 +58,11 @@ class TrishulaConfig:
     verify_build_timeout: int = 600
     verify_test_timeout: int = 600
     coding_max_steps: int = 60
+    # Verifier Phase 2: property testing + statement coverage
+    verify_property_tests: bool = True   # run @property_test / generated property tests
+    verify_coverage: bool = True         # measure statement coverage of changed files
+    coverage_min_pct: float = 0.70       # below this, uncovered lines become feedback
+    auto_generate_tests: bool = False    # scaffold smoke/property tests for new functions
 
     # ── CHIT-SHODHANA: autonomy ─────────────────────────────────────────
     skill_min_success_quality: float = 0.55  # bar for auto-promoting a skill
@@ -70,6 +75,7 @@ class TrishulaConfig:
     team_max_tasks: int = 200
     team_max_attempts: int = 3
     team_parallel: bool = True
+    team_use_worktrees: bool = True   # isolate parallel workers in git worktrees
 
     # ── Model ───────────────────────────────────────────────────────────
     model: str = ""                          # e.g. "gpt-4o", empty = deterministic
