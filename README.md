@@ -203,8 +203,16 @@ superpowers of the best coding harnesses into one self-improving loop:
   in a new way).
 - **Devas (Devin-grade teams)** — goals compile into dependency-linked task
   DAGs executed by a parallel swarm of role-specialist workers (scout,
-  architect, implementer, reviewer, qa, devops, docs) on a shared blackboard
-  with review gates and retries.
+  architect, implementer, reviewer, qa, devops, docs, plus *ee/embedded/
+  mechanical/aerospace/biomedical/compliance* engineering roles) on a shared
+  blackboard with review gates and retries.
+- **Vishvakarma (multi-domain engineering)** — 48+ verified formulas across
+  electrical/PCB, mechanical/structural, thermal/fluid, aerospace, biomedical,
+  chemical, optical, controls and embedded; certification gates (DO-178C,
+  ISO 26262, IEC 60601/62304/61508, IPC-2221, ASCE 7); simulator toolchain
+  detection (ngspice, KiCad, PlatformIO, CalculiX, OpenFOAM…); and
+  cross-platform iOS/Xcode testing — SwiftPM/jest/Flutter tests run anywhere,
+  simulator/XCUITest via generated macOS CI or remote Mac from Windows/Linux.
 
 Runs fully **offline with zero API keys** (deterministic planning + real test
 verification), and upgrades to model-driven reasoning the moment you set

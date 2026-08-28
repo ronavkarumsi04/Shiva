@@ -193,6 +193,41 @@ class TeamPlanner:
         )
         tasks.append(qa)
 
+        # ── Vishvakarma: physical-engineering work items ────────────────
+        eng = self._engineering_surfaces(low)
+        eng_ids: list[str] = []
+        for item in eng:
+            t = Task(
+                title=item["title"],
+                description=item["desc"],
+                assignee=item["role"],
+                deps=[architect.id],
+                priority=item.get("priority", TaskPriority.NORMAL),
+                accepts=item["accepts"],
+            )
+            tasks.append(t)
+            eng_ids.append(t.id)
+
+        # Compliance gate for safety-critical / regulated engineering work.
+        gate_deps = impl_ids + eng_ids
+        if eng_ids:
+            gate = Task(
+                title="Standards & certification gate (evidence mapping)",
+                description=(
+                    "Map every requirement to evidence for the relevant standard "
+                    "(e.g. DO-178C/ISO 26262/IEC 62304/IEC 60601/IEC 61508/IPC-2221/ASCE 7). "
+                    "Use `trishula safety <gate>` for a deterministic evidence check, then "
+                    "list exactly what artifacts/tests/studies are missing."
+                ),
+                assignee="compliance",
+                deps=gate_deps,
+                priority=TaskPriority.HIGH,
+                accepts={"gate_report": "satisfied vs missing evidence enumerated", "review_gate": True},
+            )
+            tasks.append(gate)
+            # Reviewer waits for the compliance gate as well.
+            review.deps = impl_ids + eng_ids + [gate.id]
+
         if surfaces.get("docs"):
             docs = Task(
                 title="Document the change",
@@ -204,7 +239,8 @@ class TeamPlanner:
             )
             tasks.append(docs)
 
-        return Plan(goal=goal, tasks=tasks, rationale="Deterministic four-phase team plan (investigate → design → implement → review → verify).")
+        rationale = "Deterministic team plan: investigate → design → implement/engineer → compliance → review → verify."
+        return Plan(goal=goal, tasks=tasks, rationale=rationale)
 
     # ── model planning ──────────────────────────────────────────────────
 
@@ -264,6 +300,57 @@ class TeamPlanner:
             if any(marker in n for n in names):
                 markers.append(note)
         return f"Files ({len(names)} shown): {', '.join(names[:40])}\nMarkers: {', '.join(markers) or 'none'}"
+
+    def _engineering_surfaces(self, goal_low: str) -> list[dict[str, Any]]:
+        """Detect physical-engineering work items (Vishvakarma prong)."""
+        items: list[dict[str, Any]] = []
+        if any(k in goal_low for k in ("circuit", "pcb", "schematic", "voltage", "current", "spice", "analog", "power supply", "kicad")):
+            items.append({
+                "title": "Electrical design & analysis (simulate before build)",
+                "role": "ee",
+                "desc": ("Design the circuit: compute current/voltage margins, RC time "
+                         "constants, PCB trace current per IPC-2221; run SPICE (ngspice) and "
+                         "ERC/DRC (kicad-cli) where available; report margins with units."),
+                "accepts": {"simulation": "SPICE/HDL or ERC/DRC evidence", "margins": "trace math + voltage/current derating"},
+                "priority": TaskPriority.HIGH,
+            })
+        if any(k in goal_low for k in ("firmware", "embedded", "microcontroller", "stm32", "esp32", "arduino", "rtos", "sensor", "can bus")):
+            items.append({
+                "title": "Embedded/firmware implementation with HIL tests",
+                "role": "embedded",
+                "desc": ("Implement firmware: comms, timers/ISRs, bounds-checked sensor paths, "
+                         "diagnostics; build for the target (PlatformIO); provide unit + HIL tests."),
+                "accepts": {"builds": "pio run green", "hil": "hardware-in-loop or QEMU evidence"},
+                "priority": TaskPriority.HIGH,
+            })
+        if any(k in goal_low for k in ("stress", "deflection", "bracket", "beam", "shaft", "gear", "bearing", "fea", "structure", "load", "fatigue", "cad", "mechanism")):
+            items.append({
+                "title": "Mechanical/structural sizing & FEA plan",
+                "role": "mechanical",
+                "desc": ("Hand-calculate stress, deflection, buckling and factor of safety (≥1.5–3 "
+                         "per application); specify materials/tolerances; produce a CalculiX/FEA plan."),
+                "accepts": {"hand_calcs": "stress/deflection/FOS with units and assumptions", "fos": "FOS recorded against yield and buckling"},
+                "priority": TaskPriority.HIGH,
+            })
+        if any(k in goal_low for k in ("aerospace", "rocket", "aircraft", "wing", "airfoil", "drone", "uav", "orbit", "satellite", "thrust", "mach", "lift", "drag")):
+            items.append({
+                "title": "Aerospace analysis & margins",
+                "role": "aerospace",
+                "desc": ("Compute aerodynamics (lift/drag/dynamic pressure), propulsion (Δv, mass "
+                         "flow) or orbital mechanics as applicable; show mass/power margins; plan CFD."),
+                "accepts": {"analysis": "aero/propulsion/orbital math with units", "margins": "mass/power budget with reserve"},
+                "priority": TaskPriority.HIGH,
+            })
+        if any(k in goal_low for k in ("medical", "clinical", "patient", "biomed", "physiolog", "catheter", "implant", "ecg", "ekg", "wearable sensor", "fda")):
+            items.append({
+                "title": "Biomedical risk & clinical validation",
+                "role": "biomedical",
+                "desc": ("Define clinical workflow and physiological limits; start the ISO 14971 risk "
+                         "file; map IEC 60601/62304 evidence; plan validation against physiological ranges."),
+                "accepts": {"risk_file": "hazards + mitigations", "clinical": "physiological range validation plan"},
+                "priority": TaskPriority.HIGH,
+            })
+        return items
 
     def _surfaces(self, goal_low: str) -> dict[str, Any]:
         work: list[dict[str, Any]] = []

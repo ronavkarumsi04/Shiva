@@ -149,6 +149,81 @@ def cmd_selftest(args: argparse.Namespace) -> int:
     return 0 if result.wasSuccessful() else 1
 
 
+def _workspace(args: argparse.Namespace):
+    from trishula.tools.workspace import Workspace
+    return Workspace(args.path)
+
+
+def _registry(ws):
+    from trishula.tools.builtin import build_registry
+    return build_registry(ws)
+
+
+def cmd_eng(args: argparse.Namespace) -> int:
+    from trishula.engineering import formulas as F
+
+    ws = _workspace(args)
+    if args.eng_action == "formulas":
+        entries = F.list_formulas(args.domain or "")
+        if args.query:
+            q = args.query.lower()
+            entries = [f for f in entries if q in f.name.lower() or q in f.description.lower()
+                       or q in f.domain or any(q in t for t in f.tags)]
+        print(f"{len(entries)} formulas" + (f" in {args.domain}" if args.domain else ""))
+        for f in entries:
+            print(f"  {f.name:<36} [{f.domain:<10}] -> {f.result_unit}\n      {f.description}")
+        print("\nEvaluate with: trishula calc <name> --arg key=value[:unit] ...")
+        return 0
+    if args.eng_action == "calc":
+        argv: dict[str, object] = {}
+        for a in args.args or []:
+            key, _, val = a.partition("=")
+            if ":" in val:
+                num, _, unit = val.partition(":")
+                argv[key] = [float(num), unit]
+            else:
+                argv[key] = float(val)
+        formula = F.FORMULAS.get(args.name)
+        if formula is None:
+            print(f"unknown formula {args.name!r}; run `trishula eng formulas`", file=sys.stderr)
+            return 2
+        try:
+            value = F.calculate(args.name, argv)
+        except Exception as exc:  # noqa: BLE001
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print(f"{args.name} = {value:g} {formula.result_unit}")
+        return 0
+    if args.eng_action == "detect":
+        reg = _registry(ws)
+        r = reg.call("eng_detect", {"goal": args.goal or ""})
+        print(r.output)
+        return 0 if r.ok else 1
+    if args.eng_action == "gates":
+        reg = _registry(ws)
+        if args.gate:
+            r = reg.call("eng_gates", {"action": "evaluate", "gate": args.gate})
+        else:
+            r = reg.call("eng_gates", {"action": "list"})
+        print(r.output)
+        return 0 if r.ok else 1
+    if args.eng_action == "sim":
+        reg = _registry(ws)
+        r = reg.call("eng_sim_plan", {})
+        print(r.output)
+        return 0 if r.ok else 1
+    print(f"unknown eng action {args.eng_action!r}", file=sys.stderr)
+    return 2
+
+
+def cmd_ios(args: argparse.Namespace) -> int:
+    ws = _workspace(args)
+    reg = _registry(ws)
+    r = reg.call("ios_test_plan", {"scheme": args.scheme or "", "write_ci": args.write_ci})
+    print(r.output)
+    return 0 if r.ok else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="trishula",
@@ -188,6 +263,41 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp_test = sub.add_parser("selftest", help="run the trishula engine test suite")
     sp_test.set_defaults(func=cmd_selftest)
+
+    # ── Vishvakarma: multi-domain engineering ───────────────────────────
+    sp_eng = sub.add_parser("eng", help="engineering: formulas, detection, safety gates, simulations")
+    eng_sub = sp_eng.add_subparsers(dest="eng_action", required=True)
+
+    sp_f = eng_sub.add_parser("formulas", help="list/search engineering formulas")
+    sp_f.add_argument("domain", nargs="?", default="", help="domain filter (electrical, mechanical, aerospace, biomedical, …)")
+    sp_f.add_argument("--query", default="", help="keyword search")
+    sp_f.add_argument("--path", default=os.getcwd())
+
+    sp_c = eng_sub.add_parser("calc", help="evaluate a formula, e.g. trishula eng calc dynamic_pressure rho=1.225 v=340")
+    sp_c.add_argument("name", help="formula name (see `eng formulas`)")
+    sp_c.add_argument("args", nargs="*", help="key=value[:unit], e.g. v=340:m/s width=0.25:mm")
+    sp_c.add_argument("--path", default=os.getcwd())
+
+    sp_d = eng_sub.add_parser("detect", help="detect engineering domains in a project")
+    sp_d.add_argument("goal", nargs="?", default="")
+    sp_d.add_argument("--path", default=os.getcwd())
+
+    sp_g = eng_sub.add_parser("gates", help="list certification gates or evaluate one")
+    sp_g.add_argument("gate", nargs="?", default="", help="gate key to evaluate")
+    sp_g.add_argument("--path", default=os.getcwd())
+
+    sp_s = eng_sub.add_parser("sim", help="detect simulators and emit analysis commands")
+    sp_s.add_argument("--path", default=os.getcwd())
+
+    for spx, fn in ((sp_f, cmd_eng), (sp_c, cmd_eng), (sp_d, cmd_eng), (sp_g, cmd_eng), (sp_s, cmd_eng)):
+        spx.set_defaults(func=fn, verbose=0, model="", provider="")
+
+    sp_ios = sub.add_parser("ios", help="cross-platform iOS/Xcode testing plan (Mac native, Win/Linux via CI/remote)")
+    sp_ios.add_argument("--path", default=os.getcwd())
+    sp_ios.add_argument("--scheme", default="")
+    sp_ios.add_argument("--write-ci", action="store_true", dest="write_ci",
+                        help="write .github/workflows/ios-ci.yml for macOS cloud testing")
+    sp_ios.set_defaults(func=cmd_ios, verbose=0, model="", provider="")
     return p
 
 

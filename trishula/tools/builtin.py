@@ -266,4 +266,8 @@ def build_registry(
         tags=("plan",),
     )
 
+    # Vishvakarma engineering prong (multi-domain engineering + iOS).
+    from trishula.engineering.tools import attach_engineering_tools
+    attach_engineering_tools(reg, workspace, journal=journal)
+
     return reg

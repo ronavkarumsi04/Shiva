@@ -106,6 +106,66 @@ Environment variables (all optional):
   structured results — they never crash the agentic loop, and they feed the
   reflector's anti-pattern extraction.
 
+## 5th prong — Vishvakarma: engineering across disciplines
+
+Trishula is not just for software. The **Vishvakarma** prong makes Shiva an
+engineer for physical disciplines, fully offline and stdlib-only:
+
+* **Formula library** — 48+ verified, SI-pure formulas across electrical
+  (Ohm, RC, reactance, IPC-2221 PCB trace current), mechanical/structural
+  (stress, beam deflection, torsion, Euler buckling, FOS), thermal/fluid
+  (conduction, Reynolds, Darcy–Weisbach), aerospace (dynamic pressure,
+  lift/drag, orbit velocity/period, Tsiolkovsky Δv, speed of sound/Mach),
+  biomedical (BMI, Du Bois BSA, cardiac output, Laplace, SNR), chemical
+  (ideal gas), optics (Snell, critical angle), controls (settling time, PID
+  derivative), and embedded (ADC LSB/resolution). Inputs accept non-SI units
+  (`[0.25, "mm"]`) and are converted automatically.
+* **Domain detection** — classifies a workspace/goal into electrical,
+  embedded, mechanical, aerospace, biomedical, civil, chemical, optical,
+  thermal, controls, or software/iOS from file types and content.
+* **Certification gates** — evidence checklists for **DO-178C** (airborne
+  software), **ISO 26262** (automotive/ASIL), **IEC 62304 + IEC 60601**
+  (medical devices), **IEC 61508** (functional safety/SIL), **IPC-2221**
+  (PCB), **ASCE 7** (structural loads), and a mechanical factor-of-safety
+  gate. Gates report satisfied vs. *missing evidence* deterministically —
+  they never claim certification.
+* **Simulation toolchains** — detects ngspice (SPICE), Icarus Verilog/GHDL,
+  KiCad ERC/DRC, PlatformIO, OpenSCAD, CalculiX (FEA), OpenFOAM (CFD),
+  Swift/Xcode and emits exact analysis commands; missing tools produce
+  honest install/CI guidance instead of faked results.
+* **Engineering teams** — new specialist roles (`ee`, `embedded`,
+  `mechanical`, `aerospace`, `biomedical`, `compliance`) are automatically
+  added to team plans for engineering goals, with a compliance gate that
+  blocks completion until evidence is enumerated.
+
+### iOS / Xcode testing across platforms
+
+The honest constraint: **iOS Simulator and XCUITest require macOS + Xcode** —
+Apple ships them for no other OS. Trishula splits the work accordingly:
+
+| Test | Mac | Windows/Linux |
+|------|-----|---------------|
+| SwiftPM logic tests (`swift test`) | ✅ | ✅ |
+| React Native (jest) / Flutter tests | ✅ | ✅ |
+| XCTest / XCUITest on iOS Simulator | ✅ `xcodebuild test` | ☁️ via generated `macos` CI workflow, remote/EC2 Mac, or device cloud (Appetize/BrowserStack) |
+
+From Windows/Linux, `ios_test(write_ci=true)` (or `shiva trishula ios
+--write-ci`) generates a ready-to-push GitHub Actions `macos-latest`
+workflow plus exact SSH commands for a remote Mac.
+
+```bash
+shiva trishula eng formulas electrical --query trace
+shiva trishula eng calc dynamic_pressure rho=1.225 v=340
+shiva trishula eng detect "design the power supply and PCB"
+shiva trishula eng gates do-178c
+shiva trishula eng sim
+shiva trishula ios --write-ci
+```
+
+Agent tools: `eng_formula`, `eng_calculate`, `eng_detect`, `eng_safety_gate`,
+`eng_sim_plan`, `ios_test` (the `engineering` toolset); skill:
+`vishvakarma-engineering`.
+
 ## Invoking Trishula from Shiva
 
 Trishula is wired into Shiva in three places, not just the standalone CLI:
