@@ -255,6 +255,7 @@ class Swarm:
         self.journal = journal or Journal()
         self.roles = roles or RoleCatalog()
         self.board = Blackboard()
+        self._client = client
         self.worker = worker or LocalAgentWorker(
             self.workspace, client=client, config=self.cfg, journal=self.journal
         )
@@ -267,12 +268,28 @@ class Swarm:
 
                 self._pool = WorktreePool(
                     self.workspace, max_worktrees=max(1, self.cfg.team_max_workers),
-                    journal=self.journal,
+                    journal=self.journal, client=self._client,
                 )
                 if not self._pool.is_git:
                     self._pool = None  # degrade to in-place on non-git repos
             except Exception:  # noqa: BLE001
                 self._pool = None
+
+    def _llm_client(self):
+        """Return an LLM client for the merge arbiter (None in offline mode)."""
+        if self._client is not None:
+            return self._client
+        try:
+            from trishula.llm import get_client
+
+            client = get_client(self.cfg)
+            # The deterministic stub cannot reconcile conflicts; leave None so
+            # the arbiter uses safe deterministic rules only.
+            if client.name != "stub":
+                return client
+        except Exception:  # noqa: BLE001
+            pass
+        return None
 
     def execute(self) -> SwarmReport:
         start = time.monotonic()

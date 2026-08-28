@@ -58,6 +58,7 @@ class WorktreePool:
         branch_prefix: str = "trishula/",
         journal: Journal | None = None,
         shell: Shell | None = None,
+        client=None,  # LLM client for the merge arbiter (None = deterministic only)
     ):
         self.base = Path(workspace_root).resolve()
         self.max = max(1, max_worktrees)
@@ -65,6 +66,7 @@ class WorktreePool:
         self.journal = journal
         self.shell = shell or Shell(self.base, timeout=120)
         self.is_git = (self.base / ".git").exists()
+        self.client = client
         self._active: Dict[str, Path] = {}
 
     # ── lifecycle ───────────────────────────────────────────────────────
@@ -141,13 +143,44 @@ class WorktreePool:
         return res.stdout.strip()
 
     def _merge(self, branch: str) -> tuple[bool, List[str], str]:
-        """Merge ``branch`` into the base checkout's current branch."""
+        """Merge ``branch`` into the base checkout's current branch.
+
+        On conflict the merge arbiter tries deterministic (and, when a client
+        is provided, LLM-assisted) reconciliation. Only conflicts that cannot
+        be proven safe are left unresolved (merge aborted, files reported).
+        """
         r = self.shell.run(f"git merge --no-ff {shlex.quote(branch)} "
                            f"-m {shlex.quote(f'Trishula swarm: merge {branch}')}", timeout=120)
         if r.ok:
             return True, [], ""
-        # Conflict — identify files then abort so the base tree stays clean.
         files = self._conflict_files()
+        if files:
+            from trishula.team.arbiter import MergeArbiter
+
+            arbiter = MergeArbiter(self.shell, client=self.client)
+            resolutions = arbiter.resolve_all()
+            unresolved = [
+                res for res in resolutions
+                if not res.resolved and res.file in files
+            ]
+            if resolutions and not unresolved:
+                # All conflicts resolved: complete the merge commit.
+                commit = self.shell.run(
+                    f"git commit --no-edit -m {shlex.quote(f'Trishula swarm: merge {branch} (arbiter)')}",
+                    timeout=120,
+                )
+                if commit.ok:
+                    methods = ",".join(sorted({res.method for res in resolutions}))
+                    return True, [], f"conflicts auto-resolved via {methods}"
+                files = self._conflict_files()
+            elif unresolved:
+                names = [res.file for res in unresolved]
+                self.shell.run("git merge --abort", timeout=60)
+                return False, names, (
+                    "merge conflict that auto-resolution could not prove safe: "
+                    + ", ".join(names)
+                )
+        # Nothing resolved — abort so the base tree stays clean.
         self.shell.run("git merge --abort", timeout=60)
         return False, files, r.text()[-400:]
 
