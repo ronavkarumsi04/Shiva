@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-accent="green">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>trishula</title>
+<link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+<div class="tui">
+
+  <aside class="side">
+    <div class="side-head">
+      <span class="logo">▚ trishula</span>
+      <button class="btn-mini" id="newBtn" title="New session">+ new</button>
+    </div>
+
+    <div class="mode-tabs" role="tablist">
+      <button class="tab active" data-mode="code">
+        <span class="tab-key">1</span><span data-agent-label>shiva</span>
+        <span class="tab-sub">coding agent</span>
+      </button>
+      <button class="tab" data-mode="chat">
+        <span class="tab-key">2</span><span data-chat-label>saraswati</span>
+        <span class="tab-sub">chat</span>
+      </button>
+      <button class="tab" data-mode="hw">
+        <span class="tab-key">3</span><span>vishvakarma</span>
+        <span class="tab-sub">hardware plans</span>
+      </button>
+    </div>
+
+    <div class="side-row">
+      <label class="side-label">workspace</label>
+      <input id="wsInput" class="side-input" spellcheck="false" placeholder="~/code/repo" />
+    </div>
+
+    <div class="side-row side-hist">
+      <label class="side-label" id="histLabel">history</label>
+      <div id="convList" class="hist-list"><div class="dim empty">none yet</div></div>
+    </div>
+
+    <div class="side-spacer"></div>
+
+    <button class="btn-line" id="memoryBtn">~ memory</button>
+    <button class="btn-line" id="settingsBtn">~ settings</button>
+    <div class="status" id="status"><span class="sdot"></span><span id="statusText">offline · stub</span></div>
+  </aside>
+
+  <main class="main">
+    <header class="top">
+      <button class="btn-mini only-mob" id="menuBtn">≡</button>
+      <span class="crumb" id="modeCrumb">shiva</span>
+      <span class="crumb-sub" id="crumbSub">autonomous coding agent</span>
+      <span class="top-spacer"></span>
+      <span class="hint" id="modeHint">code</span>
+    </header>
+
+    <section class="term" id="term">
+      <div class="welcome" id="welcome"></div>
+    </section>
+
+    <footer class="prompt-wrap">
+      <div class="prompt" id="prompt">
+        <div class="palette" id="palette" hidden></div>
+        <textarea id="input" rows="1" spellcheck="false" placeholder="…"></textarea>
+        <div class="prompt-bar">
+          <span class="dim micro" id="slashHint">/ for commands</span>
+          <span class="dim micro">⌃⏎ submit</span>
+          <button class="btn-go" id="goBtn" title="submit (Ctrl/Cmd+Enter)">↵</button>
+        </div>
+      </div>
+      <div class="dim micro fineprint">verification is read from real runs — tests, coverage, and simulations are never faked</div>
+    </footer>
+  </main>
+</div>
+
+<!-- settings -->
+<div class="backdrop" id="settingsModal" hidden>
+  <div class="modal">
+    <div class="modal-head"><b>settings</b><button class="x" id="closeSettings">✕</button></div>
+    <div class="modal-body">
+      <div class="grid2">
+        <label>agent name<input id="setAgentName" /></label>
+        <label>chat name<input id="setChatName" /></label>
+      </div>
+      <div class="grid2">
+        <label>agent tagline<input id="setAgentTag" /></label>
+        <label>chat tagline<input id="setChatTag" /></label>
+      </div>
+      <label>chat persona / system note<textarea id="setChatSystem" rows="2"></textarea></label>
+      <div class="grid2">
+        <label>provider<input id="setProvider" placeholder="stub · openai · anthropic" /></label>
+        <label>model<input id="setModel" placeholder="gpt-4o-mini" /></label>
+      </div>
+      <div class="theme-block">
+        <label class="side-label">theme</label>
+        <div class="opts" id="themeRow">
+          <button class="opt" data-theme="dark">dark</button>
+          <button class="opt" data-theme="light">light</button>
+          <button class="opt" data-theme="sepia">sepia</button>
+        </div>
+        <label class="side-label" style="margin-top:10px">accent</label>
+        <div class="opts" id="accentRow">
+          <button class="opt" data-accent="green">green</button>
+          <button class="opt" data-accent="blue">blue</button>
+          <button class="opt" data-accent="violet">violet</button>
+          <button class="opt" data-accent="amber">amber</button>
+          <button class="opt" data-accent="red">red</button>
+        </div>
+      </div>
+      <div class="dim micro">keys are read from the environment — never stored.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-line" id="cancelSettings">cancel</button>
+      <button class="btn-go wide" id="saveSettings">save</button>
+    </div>
+  </div>
+</div>
+
+<!-- memory -->
+<div class="backdrop" id="memoryModal" hidden>
+  <div class="modal modal-wide">
+    <div class="modal-head"><b>engineering memory</b><button class="x" id="closeMemory">✕</button></div>
+    <div class="modal-body">
+      <div class="mem-bar">
+        <input id="memSearch" placeholder="search datasheets, facts, decisions…" spellcheck="false" />
+        <button class="btn-line" id="memToggle">+ capture</button>
+      </div>
+      <div class="mem-stats" id="memStats"></div>
+      <div class="mem-form" id="memForm" hidden>
+        <div class="grid2">
+          <label>kind<select id="memKind">
+            <option value="datasheet">datasheet</option>
+            <option value="fact">fact</option>
+            <option value="decision">decision</option>
+          </select></label>
+          <label>part / name / topic<input id="memKey" /></label>
+        </div>
+        <label>details<textarea id="memDetail" rows="3" placeholder="gbw = 1.0 MHz&#10;supply_max = 32 V"></textarea></label>
+        <div class="grid2">
+          <label>domain<input id="memDomain" placeholder="electrical" /></label>
+          <label>source<input id="memSource" placeholder="datasheet / run id" /></label>
+        </div>
+        <button class="btn-go wide" id="memSave">save to memory</button>
+      </div>
+      <div class="mem-list" id="memList"></div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
