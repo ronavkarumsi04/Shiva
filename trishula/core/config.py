@@ -63,7 +63,6 @@ class TrishulaConfig:
     verify_coverage: bool = True         # measure statement coverage of changed files
     coverage_min_pct: float = 0.70       # below this, uncovered lines become feedback
     auto_generate_tests: bool = False    # scaffold smoke/property tests for new functions
-    coding_repair_rounds: int = 2        # bounded verify→repair re-verification rounds
 
     # ── CHIT-SHODHANA: autonomy ─────────────────────────────────────────
     skill_min_success_quality: float = 0.55  # bar for auto-promoting a skill

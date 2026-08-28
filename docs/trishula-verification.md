@@ -74,39 +74,8 @@ TrishulaConfig(
     verify_coverage=True,
     coverage_min_pct=0.70,
     auto_generate_tests=False,   # opt-in test scaffolding
-    coding_repair_rounds=2,      # bounded verify→repair re-verification rounds
     team_use_worktrees=True,
 )
 ```
-
-## Merge arbiter (`trishula/team/arbiter.py`)
-
-When parallel worktree workers touch the same file, `git merge` can leave
-conflict markers. Instead of discarding one worker's output, the
-**MergeArbiter** attempts safe reconciliation:
-
-1. **Deterministic rules** (no model, always safe): identical sides → keep one;
-   one side empty → keep the other; in `.py` files where both sides add only
-   syntactically valid `import` lines → order-preserving de-duplicated union.
-2. **LLM reconciliation** (only when a live, non-stub model is configured): the
-   marked file is sent to the model; its merged output is accepted **only if**
-   it contains no conflict markers and, for `.py`, `ast.parse`s cleanly.
-3. Anything that cannot be proven safe stays **unresolved**: the merge is
-   aborted (`git merge --abort`), the tree restored cleanly, and the
-   conflicting files reported back for re-queue or a human.
-
-Import union fires only for valid Python imports — prose like `from A` in a
-`.txt` file is never mistaken for an `import`.
-
-## Bounded verify→repair loop (`trishula/coding/loop.py`)
-
-After implementation the verifier runs. On FAIL/PARTIAL — or actionable
-coverage/property feedback — instead of ending the task the loop feeds the
-failing test names, uncovered line numbers, and property-violation notes back
-to the model as a "repair the code" message and grants additional tool turns.
-This repeats up to `coding_repair_rounds` (default 2), re-verifying after each
-round, stopping as soon as the verdict is PASS with no feedback. The number of
-rounds used is recorded on the run report. The budget is always bounded: a
-failure the model cannot fix in time is reported, not looped on forever.
 
 All additions are stdlib-only; the verifier still runs anywhere Shiva does.

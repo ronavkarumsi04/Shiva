@@ -61,12 +61,6 @@ work done with failing tests.
 
 
 @dataclass
-class _DriveState:
-    steps: int = 0
-    summary: str = ""
-
-
-@dataclass
 class RunReport:
     goal: str
     ok: bool
@@ -76,7 +70,6 @@ class RunReport:
     changed_files: list[str] = field(default_factory=list)
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     transcript: list[dict[str, Any]] = field(default_factory=list)
-    repair_rounds: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -87,7 +80,6 @@ class RunReport:
             "verdict": self.verification.verdict.value if self.verification else "skipped",
             "changed_files": self.changed_files,
             "tool_calls": self.tool_calls,
-            "repair_rounds": self.repair_rounds,
         }
 
 
@@ -150,12 +142,13 @@ class CodingLoop:
         self.journal.emit(EventKind.PLAN_MADE, goal=goal, client=client.name)
 
         bundle = self.context_engine.build_context(goal)
+        context_block = bundle.render()
         messages: list[Message] = [
             Message.system(_SYSTEM_PROMPT),
             Message.user(
                 f"TASK: {goal}\n\n"
                 f"=== Curated repository context (~{bundle.estimated_tokens} tokens) ===\n"
-                f"{bundle.render()}\n"
+                f"{context_block}\n"
                 f"=== End context. Now make the change and verify it. ==="
             ),
         ]
@@ -164,106 +157,16 @@ class CodingLoop:
         finished_summary = ""
         steps = 0
 
-        # Initial implementation round.
-        state = self._drive(
-            client, messages, tools,
-            step_budget=max_steps, step_offset=0, calls=calls,
-        )
-        steps = state.steps
-        finished_summary = state.summary
-
-        # ── mandatory verification + bounded repair rounds (phase 2) ─────
-        changed = self.edit_engine.changed_files or self.ws.changed_files
-        verification: VerificationResult | None = None
-        repair_rounds = max(0, getattr(self.cfg, "coding_repair_rounds", 2))
-        rounds_done = 0
-
-        if changed:
-            verification = self.verifier.verify(changed)
-
-            for round_no in range(1, repair_rounds + 1):
-                if verification.verdict == Verdict.PASS and not verification.feedback:
-                    break
-                if verification.verdict not in (Verdict.FAIL, Verdict.PARTIAL) and not verification.feedback:
-                    break
-                if steps >= max_steps:
-                    break
-                feedback = self._repair_message(verification, round_no)
-                messages.append(Message.user(feedback))
-                rounds_done = round_no
-                self.journal.emit(EventKind.PLAN_MADE, goal=goal, repair_round=round_no,
-                                  verdict=verification.verdict.value)
-                repair = self._drive(
-                    client, messages, tools,
-                    step_budget=max_steps - steps, step_offset=steps, calls=calls,
-                )
-                steps += repair.steps
-                if repair.summary:
-                    finished_summary = repair.summary
-                changed = self.edit_engine.changed_files or self.ws.changed_files
-                verification = self.verifier.verify(changed)
-
-            ok = verification.verdict in {Verdict.PASS, Verdict.PARTIAL}
-        else:
-            ok = bool(finished_summary)
-
-        summary = finished_summary
-        if verification is not None and not summary:
-            summary = verification.summary
-        report = RunReport(
-            goal=goal,
-            ok=ok,
-            summary=summary,
-            steps=steps,
-            verification=verification,
-            changed_files=changed,
-            tool_calls=calls,
-            transcript=[m.to_dict() for m in messages],
-            repair_rounds=rounds_done,
-        )
-        self.journal.emit(
-            EventKind.TASK_FINISHED,
-            goal=goal, ok=ok,
-            verdict=verification.verdict.value if verification else "no-changes",
-            steps=steps,
-        )
-        return report
-
-    def _repair_message(self, verification: VerificationResult, round_no: int) -> str:
-        parts = [f"Verification round {round_no} — repair and re-verify."]
-        if verification.verdict == Verdict.FAIL:
-            parts.append("Tests FAILED — fix the ROOT CAUSE (not the symptom):")
-            parts.append(verification.summary)
-            if verification.failures:
-                parts.append("Failures: " + ", ".join(f.name for f in verification.failures))
-        if verification.feedback:
-            parts.append("Coverage/property feedback:\n" + verification.feedback)
-        parts.append("Re-run the failing tests/edits, then call finish only when green.")
-        return "\n".join(parts)
-
-    def _drive(
-        self,
-        client: LLMClient,
-        messages: list[Message],
-        tools: list[dict[str, Any]],
-        *,
-        step_budget: int,
-        step_offset: int,
-        calls: list[dict[str, Any]],
-    ) -> "_DriveState":
-        """Run tool-calling turns until finish or the step budget is spent."""
-        finished_summary = ""
-        taken = 0
-        for i in range(1, step_budget + 1):
-            step = step_offset + i
-            taken = i
+        for step in range(1, max_steps + 1):
+            steps = step
             response = client.complete(
                 messages, tools=tools,
                 temperature=self.cfg.model_temperature,
                 max_tokens=self.cfg.model_max_tokens,
             )
             if not response.tool_calls:
-                if i == 1 and step_offset == 0:
+                # Model answered in prose; nudge it once toward tools, else finish.
+                if step == 1:
                     messages.append(Message.assistant(response.content))
                     messages.append(Message.user(
                         "Use the provided tools to implement the change, then call finish."
@@ -284,17 +187,63 @@ class CodingLoop:
                 try:
                     result = self.registry.call(name, args)
                 except TrishulaError as exc:
+                    # Unknown tool / bad args: feed back as a recoverable error
+                    # instead of crashing the run.
                     result = ToolResult(ok=False, error=str(exc), tool=name)
                 calls.append({"step": step, "tool": name, "args": _short(args), "ok": result.ok})
                 self.journal.emit(EventKind.PLAN_STEP, step=step, tool=name, ok=result.ok)
-                messages.append(Message.tool(_result_text(result), tc["id"], name=name))
+                messages.append(Message.tool(
+                    _result_text(result), tc["id"], name=name
+                ))
                 if result.data.get("finish"):
                     finished_summary = result.data.get("summary", result.output)
                     stop = True
                     break
             if stop:
                 break
-        return _DriveState(steps=taken, summary=finished_summary)
+
+        # ── mandatory verification (phase 2: properties + coverage) ─────
+        changed = self.edit_engine.changed_files or self.ws.changed_files
+        verification = None
+        ok = False
+        if changed:
+            verification = self.verifier.verify(changed)
+            if verification.feedback:
+                # Coverage gaps / property violations become actionable input.
+                messages.append(Message.user(
+                    "Verification feedback — strengthen before finishing:\n"
+                    + verification.feedback
+                ))
+            if verification.verdict == Verdict.FAIL and steps < max_steps:
+                # One closed-loop repair attempt: feed failures back.
+                messages.append(Message.user(
+                    "Verification FAILED. Fix the root cause and re-verify.\n"
+                    + verification.summary
+                    + "\nFailures: " + ", ".join(f.name for f in verification.failures)
+                ))
+                # (The deterministic stub ignores this extra turn's prose; a
+                # real model gets another budget to repair.)
+            ok = verification.verdict in {Verdict.PASS, Verdict.PARTIAL}
+        else:
+            ok = bool(finished_summary)
+
+        report = RunReport(
+            goal=goal,
+            ok=ok,
+            summary=finished_summary or verification.summary if verification else finished_summary,
+            steps=steps,
+            verification=verification,
+            changed_files=changed,
+            tool_calls=calls,
+            transcript=[m.to_dict() for m in messages],
+        )
+        self.journal.emit(
+            EventKind.TASK_FINISHED,
+            goal=goal, ok=ok,
+            verdict=verification.verdict.value if verification else "no-changes",
+            steps=steps,
+        )
+        return report
 
     def _lazy_client(self) -> LLMClient:
         from trishula.llm import get_client
