@@ -106,6 +106,25 @@ Environment variables (all optional):
   structured results — they never crash the agentic loop, and they feed the
   reflector's anti-pattern extraction.
 
+## Invoking Trishula from Shiva
+
+Trishula is wired into Shiva in three places, not just the standalone CLI:
+
+1. **`shiva trishula …`** (alias `shiva tri …`) — the engine CLI under the
+   Shiva command: `shiva trishula code "…"`, `shiva trishula team "…"`,
+   `shiva trishula skills`, `shiva trishula runs`, `shiva trishula selftest`
+   (parser: `shiva_cli/subcommands/trishula.py`).
+2. **Agent-callable tools** — the model can invoke the engine mid-conversation
+   via `trishula_code` (autonomous verified coding task), `trishula_team`
+   (plan/execute a dev-team swarm), `trishula_skills` (search the distilled
+   skill library), and `trishula_runs` (run history). These ship in the
+   `trishula` toolset, which is folded into the `coding` posture and the
+   `shiva-acp` editor toolset (`tools/trishula_tools.py`, registered
+   automatically by the tools-directory auto-discovery).
+3. **Skill** — `skills/software-development/trishula-autonomous-engineering/`
+   teaches the agent when to reach for each tool and to trust the
+   verification verdict rather than narration.
+
 ## Layout
 
 ```

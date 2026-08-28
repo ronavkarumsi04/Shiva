@@ -479,6 +479,7 @@ from shiva_cli.subcommands.memory import build_memory_parser
 from shiva_cli.subcommands.acp import build_acp_parser
 from shiva_cli.subcommands.tools import build_tools_parser
 from shiva_cli.subcommands.insights import build_insights_parser
+from shiva_cli.subcommands.trishula import build_trishula_parser, cmd_trishula
 from shiva_cli.subcommands.monitoring import build_monitoring_parser
 from shiva_cli.subcommands.skills import build_skills_parser
 from shiva_cli.subcommands.pairing import build_pairing_parser
@@ -14559,6 +14560,12 @@ def main():
     # =========================================================================
     build_insights_parser(subparsers, cmd_insights=cmd_insights)
     build_monitoring_parser(subparsers, cmd_monitoring=cmd_monitoring)
+
+    # =========================================================================
+    # trishula command  (Trishula engineering core; parser in
+    # shiva_cli/subcommands/trishula.py — handler self-contained there)
+    # =========================================================================
+    build_trishula_parser(subparsers, cmd_trishula=cmd_trishula)
 
     # =========================================================================
     # claw command  (parser built in shiva_cli/subcommands/claw.py)
