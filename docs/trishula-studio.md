@@ -71,8 +71,14 @@ of text:
 
 ## Design principles
 
-- **Premium, dark, layered** — glassy surfaces, soft glows, dense but
-  breathable, animated but not noisy.
-- **Honest** — test and simulation results come from real runs; the UI never
-  invents metrics. Offline/stub mode is labeled, not faked.
+- **Terminal-grade, text-first** — flat monospace UI modeled on Claude Code /
+  Codex: a dense single-line tool trace with a spinner that resolves to ✓/✗,
+  collapsible detail, unified diffs inline, and a bottom prompt. No gradients,
+  no glows, no card-soup. Three themes (dark / light / sepia) and five muted
+  accents; both agents and the chat persona are fully renamable.
+- **Slash commands** — `/calc`, `/formulas`, `/gate`, `/gates`, `/diagram`
+  surface engineering results as flat, aligned output.
+- **Diagrams** — render flat and can be drag-edited inline.
+- **Honest** — test, coverage, and simulation results come from real runs; the
+  UI never invents metrics. Offline/stub mode is labeled, not faked.
 - **Customizable** — rename both agents, theme the whole app, set a persona.

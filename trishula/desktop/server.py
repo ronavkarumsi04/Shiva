@@ -23,6 +23,17 @@ Endpoints
 ``GET  /api/runs``               recent run metadata
 ``GET  /api/memory``             engineering memory records (for diagrams)
 ``POST /api/memory/decision``    save a design decision from the UI
+``POST /api/memory/capture``     capture a component datasheet
+``POST /api/memory/fact``        remember a measured/verified constant
+``GET  /api/memory/search?q=``   ranked memory search
+``GET  /api/conversations``      list saved chat/code conversations
+``GET  /api/conversation?id=``   one conversation's messages
+``POST /api/conversation/save``  upsert a conversation
+``DELETE /api/conversation?id=`` delete a conversation
+``GET  /api/eng/formulas?domain=``   formula catalogue
+``POST /api/eng/calc``           evaluate a formula {name, args}
+``GET  /api/eng/gates``          certification gate catalogue
+``POST /api/eng/gate``           evaluate a gate against a workspace
 """
 
 from __future__ import annotations
@@ -65,6 +76,8 @@ class StudioServer:
         self.port = port
         self.settings_path = Path(self.cfg.home or Path.home() / ".trishula") / "studio_settings.json"
         self.settings_path.parent.mkdir(parents=True, exist_ok=True)
+        self.conv_dir = self.settings_path.parent / "conversations"
+        self.conv_dir.mkdir(parents=True, exist_ok=True)
         self.settings = self._load_settings()
         self._httpd: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
@@ -99,6 +112,54 @@ class StudioServer:
         if self._httpd:
             self._httpd.shutdown()
             self._httpd.server_close()
+
+    # ── conversation persistence ─────────────────────────────────────────
+
+    def _conv_path(self, cid: str) -> Path:
+        cid = "".join(ch for ch in cid if ch.isalnum() or ch in "-_") or "new"
+        return self.conv_dir / f"{cid}.json"
+
+    def _list_conversations(self) -> list[dict[str, Any]]:
+        out = []
+        for f in self.conv_dir.glob("*.json"):
+            try:
+                d = json.loads(f.read_text(encoding="utf-8"))
+                out.append({"id": d.get("id", f.stem), "mode": d.get("mode", "chat"),
+                            "title": d.get("title", "conversation"),
+                            "updated_at": d.get("updated_at", 0),
+                            "messages": len(d.get("messages", []))})
+            except (OSError, json.JSONDecodeError):
+                continue
+        out.sort(key=lambda c: c["updated_at"], reverse=True)
+        return out[:60]
+
+    def _load_conversation(self, cid: str) -> dict[str, Any] | None:
+        p = self._conv_path(cid)
+        if not p.exists():
+            return None
+        try:
+            return json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+
+    def _save_conversation(self, conv: dict[str, Any]) -> dict[str, Any]:
+        cid = conv.get("id") or uuid.uuid4().hex[:12]
+        conv["id"] = cid
+        conv["updated_at"] = time.time()
+        conv.setdefault("created_at", conv["updated_at"])
+        msgs = conv.get("messages", [])
+        if not conv.get("title") and msgs:
+            first = msgs[0].get("content", "") or ""
+            conv["title"] = first[:48].replace("\n", " ").strip() or "conversation"
+        self._conv_path(cid).write_text(json.dumps(conv, indent=2), encoding="utf-8")
+        return {"id": cid, "title": conv["title"], "updated_at": conv["updated_at"]}
+
+    def _delete_conversation(self, cid: str) -> None:
+        p = self._conv_path(cid)
+        try:
+            p.unlink()
+        except OSError:
+            pass
 
     # ── SSE streams ─────────────────────────────────────────────────────
 
@@ -269,9 +330,51 @@ class StudioServer:
                         from trishula.engineering.memory import EngineeringMemory
                         mem = EngineeringMemory(home=studio.cfg.home)
                         return self._json({"stats": mem.stats(),
-                                           "records": [r.to_dict() for r in mem.all()][:100]})
+                                           "records": [r.to_dict() for r in mem.all()][:200]})
                     except Exception as exc:  # noqa: BLE001
                         return self._json({"error": str(exc), "records": []})
+                if path == "/api/memory/search":
+                    q = parse_qs(url.query).get("q", [""])[0]
+                    try:
+                        from trishula.engineering.memory import EngineeringMemory
+                        mem = EngineeringMemory(home=studio.cfg.home)
+                        hits = [r.to_dict() for r in mem.search(q, k=12)]
+                        return self._json({"results": hits})
+                    except Exception as exc:  # noqa: BLE001
+                        return self._json({"error": str(exc), "results": []})
+                if path == "/api/conversations":
+                    return self._json({"conversations": studio._list_conversations()})
+                if path == "/api/conversation":
+                    cid = parse_qs(url.query).get("id", [""])[0]
+                    conv = studio._load_conversation(cid)
+                    if conv is None:
+                        return self._json({"error": "not found"}, 404)
+                    return self._json(conv)
+                if path == "/api/eng/formulas":
+                    from trishula.engineering.formulas import list_formulas, DOMAINS_COVERED
+                    domain = parse_qs(url.query).get("domain", [""])[0]
+                    fs = list_formulas(domain)
+                    return self._json({
+                        "domains": DOMAINS_COVERED,
+                        "formulas": [{"name": f.name, "domain": f.domain,
+                                      "description": f.description, "args": f.args,
+                                      "result_unit": f.result_unit, "tags": list(f.tags)}
+                                     for f in fs],
+                    })
+                if path == "/api/eng/gates":
+                    from trishula.engineering.safety import GATES
+                    return self._json({"gates": [
+                        {"key": k, "name": g.name, "domain": g.domain,
+                         "description": g.description, "items": len(g.items)}
+                        for k, g in GATES.items()]})
+                return self._json({"error": "not found"}, 404)
+
+            def do_DELETE(self):  # noqa: N802
+                url = urlparse(self.path)
+                if url.path == "/api/conversation":
+                    cid = parse_qs(url.query).get("id", [""])[0]
+                    studio._delete_conversation(cid)
+                    return self._json({"ok": True})
                 return self._json({"error": "not found"}, 404)
 
             def do_POST(self):  # noqa: N802
@@ -317,6 +420,69 @@ class StudioServer:
                         return self._json(rec.to_dict())
                     except Exception as exc:  # noqa: BLE001
                         return self._json({"error": str(exc)}, 500)
+
+                if url.path == "/api/memory/capture":
+                    try:
+                        from trishula.engineering.memory import EngineeringMemory
+                        mem = EngineeringMemory(home=studio.cfg.home)
+                        rec = mem.capture_datasheet(
+                            body.get("part", "unknown"),
+                            body.get("parameters", {}),
+                            manufacturer=body.get("manufacturer", ""),
+                            source=body.get("source", "studio ui"),
+                            domain=body.get("domain", ""),
+                        )
+                        return self._json(rec.to_dict())
+                    except Exception as exc:  # noqa: BLE001
+                        return self._json({"error": str(exc)}, 500)
+
+                if url.path == "/api/memory/fact":
+                    try:
+                        from trishula.engineering.memory import EngineeringMemory
+                        mem = EngineeringMemory(home=studio.cfg.home)
+                        rec = mem.remember_fact(
+                            body.get("name", "fact"), body.get("value"),
+                            unit=body.get("unit", ""), domain=body.get("domain", ""),
+                            note=body.get("note", ""), source=body.get("source", "studio ui"),
+                        )
+                        return self._json(rec.to_dict())
+                    except Exception as exc:  # noqa: BLE001
+                        return self._json({"error": str(exc)}, 500)
+
+                if url.path == "/api/conversation/save":
+                    conv = studio._save_conversation(body)
+                    return self._json(conv)
+
+                if url.path == "/api/eng/calc":
+                    try:
+                        from trishula.engineering.formulas import calculate, FORMULAS
+                        name = body.get("name", "")
+                        if name not in FORMULAS:
+                            return self._json({"error": f"unknown formula {name!r}",
+                                               "available": len(FORMULAS)}, 400)
+                        args = body.get("args", {}) or {}
+                        # args may arrive as strings or [value, unit] pairs
+                        val = calculate(name, **args)
+                        f = FORMULAS[name]
+                        return self._json({"name": name, "value": val,
+                                           "result_unit": f.result_unit,
+                                           "description": f.description})
+                    except Exception as exc:  # noqa: BLE001
+                        return self._json({"error": f"{type(exc).__name__}: {exc}"}, 400)
+
+                if url.path == "/api/eng/gate":
+                    try:
+                        from trishula.engineering.safety import evaluate_gate, GATES
+                        from trishula.tools.workspace import Workspace
+                        key = body.get("gate", "")
+                        if key not in GATES:
+                            return self._json({"error": f"unknown gate {key!r}",
+                                               "available": sorted(GATES)}, 400)
+                        ws = Workspace(body.get("workspace", "."))
+                        report = evaluate_gate(key, workspace=ws)
+                        return self._json(report.to_dict())
+                    except Exception as exc:  # noqa: BLE001
+                        return self._json({"error": f"{type(exc).__name__}: {exc}"}, 400)
 
                 return self._json({"error": "not found"}, 404)
 
