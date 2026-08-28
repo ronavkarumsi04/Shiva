@@ -373,6 +373,34 @@ TOOLSETS = {
         "includes": ["web", "vision", "image_gen"]
     },
 
+    # Vishvakarma — multi-domain engineering (Vishvakarma prong of the
+    # trishula package): formulas for electrical/mechanical/aerospace/
+    # biomedical/… disciplines, certification gates, simulator toolchains,
+    # cross-platform iOS testing.
+    "engineering": {
+        "description": "Engineering across disciplines: cross-domain physics/formula engine, certification safety gates, simulation toolchain plans, and cross-platform iOS/Xcode testing",
+        "tools": [
+            "eng_formula", "eng_calculate", "eng_detect",
+            "eng_safety_gate", "eng_sim_plan", "ios_test",
+        ],
+        "includes": []
+    },
+
+    # Trishula — the autonomous engineering engine (trishula package):
+    # verified coding loops, dev-team planning/swarms, and the self-improving
+    # skill library. Stdlib-only, so always available; sandboxed inside its
+    # own workspace. See docs/trishula.md.
+    "trishula": {
+        "description": "Trishula autonomous engineering core: verified coding tasks, Devin-style dev-team plans/swarms, self-improving skill library, and run history",
+        "tools": [
+            "trishula_code",
+            "trishula_team",
+            "trishula_skills",
+            "trishula_runs",
+        ],
+        "includes": []
+    },
+
     # Coding posture (base Shiva — CLI/TUI/desktop/ACP). Auto-selected in a
     # code workspace; see agent/coding_context.py. Keeps everything you reach
     # for while pairing on code and drops the rest (messaging, tts, image_gen,
@@ -398,6 +426,8 @@ TOOLSETS = {
             "todo", "memory",
             "session_search", "clarify",
             "execute_code", "delegate_task",
+            # Trishula autonomous engineering engine
+            "trishula_code", "trishula_team", "trishula_skills", "trishula_runs",
         ],
         "includes": [],
         # Posture toolset: selected per-session by agent/coding_context.py,
@@ -431,6 +461,7 @@ TOOLSETS = {
             "todo", "memory",
             "session_search",
             "execute_code", "delegate_task",
+            "trishula_code", "trishula_team", "trishula_skills", "trishula_runs",
         ],
         "includes": []
     },
