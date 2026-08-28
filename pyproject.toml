@@ -379,6 +379,8 @@ build-backend = "setuptools.build_meta"
 shiva = "shiva_cli.main:main"
 shiva-agent = "run_agent:main"
 shiva-acp = "acp_adapter.entry:main"
+trishula = "trishula.cli:main"
+trishula-selftest = "trishula.cli:main"
 
 [tool.uv]
 override-dependencies = [
@@ -448,7 +450,7 @@ py-modules = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["agent", "agent.*", "tools", "tools.*", "shiva_cli", "shiva_cli.*", "gateway", "gateway.*", "tui_gateway", "tui_gateway.*", "cron", "cron.*", "acp_adapter", "plugins", "plugins.*", "providers", "providers.*"]
+include = ["agent", "agent.*", "tools", "tools.*", "shiva_cli", "shiva_cli.*", "gateway", "gateway.*", "tui_gateway", "tui_gateway.*", "cron", "cron.*", "acp_adapter", "plugins", "plugins.*", "providers", "providers.*", "trishula", "trishula.*"]
 
 [tool.setuptools.package-data]
 shiva_cli = ["observability/schemas/*.json", "data/*.json"]

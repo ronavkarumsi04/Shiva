@@ -184,6 +184,43 @@ All documentation lives at **[shiva-agent.nousresearch.com/docs](https://shiva-a
 
 ---
 
+## 🔱 Trishula — the autonomous engineering core
+
+Shiva ships with **Trishula**, a stdlib-only engine that fuses the four
+superpowers of the best coding harnesses into one self-improving loop:
+
+- **Kāraṇa (Claude-Code-grade coding)** — exact-match `str_replace`/insert/undo
+  edits, a ctags-free repository map, a context engine that ranks files
+  before the model sees them, and **mandatory verification** (syntax →
+  targeted tests → full suite; red→green fed back into the loop).
+- **Āyudha (Codex-grade tooling)** — a declarative tool registry with
+  JSON-schema validation, a workspace that confines every path, and a
+  sandboxed shell (command denylist, timeouts, output caps, secret stripping,
+  network denial, best-effort bwrap/unshare isolation).
+- **Chit-Shodhana (Hermes-grade autonomy)** — every run is journaled, scored
+  by hard signals, retro'd into lessons, and distilled into reusable
+  **Skills** (BM25 retrieval; skills that *patch themselves* when they fail
+  in a new way).
+- **Devas (Devin-grade teams)** — goals compile into dependency-linked task
+  DAGs executed by a parallel swarm of role-specialist workers (scout,
+  architect, implementer, reviewer, qa, devops, docs) on a shared blackboard
+  with review gates and retries.
+
+Runs fully **offline with zero API keys** (deterministic planning + real test
+verification), and upgrades to model-driven reasoning the moment you set
+`TRISHULA_PROVIDER`. Try it:
+
+```bash
+trishula code "fix the flaky retry test and add a regression check"
+trishula team "ship the webhooks feature: endpoint, tests, CI, docs"
+trishula skills list && trishula runs
+trishula selftest          # 70 engine tests, no pytest needed
+```
+
+See [`docs/trishula.md`](docs/trishula.md) for the full architecture.
+
+---
+
 ## Migrating from OpenClaw
 
 If you're coming from OpenClaw, Shiva can automatically import your settings, memories, skills, and API keys.
