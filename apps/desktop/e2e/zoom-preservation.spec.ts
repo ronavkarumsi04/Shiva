@@ -21,20 +21,20 @@ let fixture: MockBackendFixture | null = null
 async function readZoomPercent(): Promise<number> {
   return fixture!.page.evaluate(async () => {
     const desktop = window as unknown as {
-      hermesDesktop: { zoom: { get: () => Promise<{ percent: number }> } }
+      shivaDesktop: { zoom: { get: () => Promise<{ percent: number }> } }
     }
 
-    return (await desktop.hermesDesktop.zoom.get()).percent
+    return (await desktop.shivaDesktop.zoom.get()).percent
   })
 }
 
 async function setZoomPercent(percent: number): Promise<void> {
   await fixture!.page.evaluate(target => {
     const desktop = window as unknown as {
-      hermesDesktop: { zoom: { setPercent: (percent: number) => void } }
+      shivaDesktop: { zoom: { setPercent: (percent: number) => void } }
     }
 
-    desktop.hermesDesktop.zoom.setPercent(target)
+    desktop.shivaDesktop.zoom.setPercent(target)
   }, percent)
   await expect.poll(readZoomPercent).toBe(percent)
 }

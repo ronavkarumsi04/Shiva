@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from hermes_cli.active_sessions import (
+from shiva_cli.active_sessions import (
     active_session_liveness_guard,
     active_session_registry_snapshot,
     try_acquire_active_session,
@@ -23,8 +23,8 @@ import os
 import time
 from pathlib import Path
 
-from hermes_cli import active_sessions
-from hermes_cli.active_sessions import try_acquire_active_session
+from shiva_cli import active_sessions
+from shiva_cli.active_sessions import try_acquire_active_session
 
 boundary_file = os.environ.get("BOUNDARY_FILE")
 if boundary_file:
@@ -78,7 +78,7 @@ def _spawn_lease_holder(
         if key.endswith("_API_KEY") or key.endswith("_TOKEN"):
             env.pop(key)
     env.update({
-        "HERMES_HOME": str(home),
+        "SHIVA_HOME": str(home),
         "PYTHONPATH": os.pathsep.join(
             part for part in (str(repo_root), env.get("PYTHONPATH", "")) if part
         ),
@@ -147,7 +147,7 @@ def test_unlimited_session_lease_remains_noop_without_liveness_tracking(
 def test_orphan_guard_fails_closed_when_registry_is_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from hermes_cli import active_sessions
+    from shiva_cli import active_sessions
 
     def _unavailable(*_args, **_kwargs):
         raise OSError("registry unavailable")

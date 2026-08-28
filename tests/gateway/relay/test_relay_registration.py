@@ -59,9 +59,9 @@ class TestConfigRegistrationAgreementUnderMultiplexScope:
         from agent import secret_scope as ss
         from gateway.config import Platform, load_gateway_config
 
-        hermes_home = tmp_path / ".hermes"
-        hermes_home.mkdir()
-        (hermes_home / "config.yaml").write_text(
+        shiva_home = tmp_path / ".shiva"
+        shiva_home.mkdir()
+        (shiva_home / "config.yaml").write_text(
             "gateway:\n"
             "  platforms:\n"
             "    telegram:\n"
@@ -69,7 +69,7 @@ class TestConfigRegistrationAgreementUnderMultiplexScope:
             "      bot_token: '123:abc'\n",
             encoding="utf-8",
         )
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("SHIVA_HOME", str(shiva_home))
         monkeypatch.setenv("GATEWAY_RELAY_URL", "wss://deploy.example/relay")
 
         profile_dir = tmp_path / "profile-a"
@@ -106,9 +106,9 @@ class TestConfigRegistrationAgreementUnderMultiplexScope:
         from agent import secret_scope as ss
         from gateway.config import Platform, load_gateway_config
 
-        hermes_home = tmp_path / ".hermes"
-        hermes_home.mkdir()
-        (hermes_home / "config.yaml").write_text(
+        shiva_home = tmp_path / ".shiva"
+        shiva_home.mkdir()
+        (shiva_home / "config.yaml").write_text(
             "gateway:\n"
             "  platforms:\n"
             "    telegram:\n"
@@ -116,7 +116,7 @@ class TestConfigRegistrationAgreementUnderMultiplexScope:
             "      bot_token: '123:abc'\n",
             encoding="utf-8",
         )
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("SHIVA_HOME", str(shiva_home))
 
         profile_dir = tmp_path / "profile-a"
         profile_dir.mkdir()

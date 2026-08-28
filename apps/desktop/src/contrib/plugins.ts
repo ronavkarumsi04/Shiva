@@ -2,22 +2,22 @@
  * Plugin discovery — both delivery modes:
  *
  *  - BUNDLED: every `src/plugins/<name>/plugin.{js,ts,tsx}` default-exporting
- *    a `HermesPlugin` registers automatically (vite glob — drop a folder in).
- *    `hermes-bots` (Bot Mode) ships in-tree and is ON by default; other
- *    reference/demo plugins live in the companion `hermes-example-plugins`
+ *    a `ShivaPlugin` registers automatically (vite glob — drop a folder in).
+ *    `shiva-bots` (Bot Mode) ships in-tree and is ON by default; other
+ *    reference/demo plugins live in the companion `shiva-example-plugins`
  *    repo. `.js` entries are SDK-consumer plugins adopted from standalone
  *    repos — they keep the plain-ESM plugin.js form so the file stays
  *    loadable by older desktops' runtime door too.
- *  - RUNTIME: the on-disk doors (`<hermes home>/desktop-plugins/<name>/plugin.js`
- *    and the unified-package half `<hermes home>/plugins/<name>/desktop/plugin.js`)
+ *  - RUNTIME: the on-disk doors (`<shiva home>/desktop-plugins/<name>/plugin.js`
+ *    and the unified-package half `<shiva home>/plugins/<name>/desktop/plugin.js`)
  *    — the agent's/user's doors, watched + hot-reloaded by the runtime loader.
  */
 
-import { createPluginContext, type HermesPlugin } from './plugin'
+import { createPluginContext, type ShivaPlugin } from './plugin'
 import { pluginActive, publishPlugin } from './plugins-store'
 import { watchRuntimePlugins } from './runtime-loader'
 
-const modules = import.meta.glob<{ default: HermesPlugin }>('../plugins/*/plugin.{js,ts,tsx}', { eager: true })
+const modules = import.meta.glob<{ default: ShivaPlugin }>('../plugins/*/plugin.{js,ts,tsx}', { eager: true })
 
 // One-shot init guard. Contributions themselves register by id (re-registering
 // is idempotent), but the disk-door watcher setup below (watchRuntimePlugins)
@@ -36,7 +36,7 @@ export function discoverBundledPlugins(): void {
     const plugin = mod.default
 
     if (!plugin?.id || typeof plugin.register !== 'function') {
-      console.warn(`[plugins] ${path} has no valid default HermesPlugin export — skipped`)
+      console.warn(`[plugins] ${path} has no valid default ShivaPlugin export — skipped`)
 
       continue
     }

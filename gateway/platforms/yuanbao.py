@@ -79,7 +79,7 @@ from gateway.platforms.yuanbao_proto import (
     _parse_fields,
     WS_HEARTBEAT_RUNNING,
     WS_HEARTBEAT_FINISH,
-    HERMES_INSTANCE_ID,
+    SHIVA_INSTANCE_ID,
     decode_conn_msg,
     decode_inbound_push,
     decode_forward_msg_data,
@@ -104,13 +104,13 @@ logger = logging.getLogger(__name__)
 # Version / platform constants (used in AUTH_BIND and sign-token headers)
 # ---------------------------------------------------------------------------
 try:
-    from hermes_cli import __version__ as _HERMES_VERSION
+    from shiva_cli import __version__ as _SHIVA_VERSION
 except ImportError:
-    _HERMES_VERSION = "0.0.0"
+    _SHIVA_VERSION = "0.0.0"
 
-_APP_VERSION = _HERMES_VERSION
-_BOT_VERSION = _HERMES_VERSION
-_YUANBAO_INSTANCE_ID = str(HERMES_INSTANCE_ID)  # single source: yuanbao_proto.HERMES_INSTANCE_ID
+_APP_VERSION = _SHIVA_VERSION
+_BOT_VERSION = _SHIVA_VERSION
+_YUANBAO_INSTANCE_ID = str(SHIVA_INSTANCE_ID)  # single source: yuanbao_proto.SHIVA_INSTANCE_ID
 _OPERATION_SYSTEM = sys.platform
 
 # ---------------------------------------------------------------------------
@@ -1406,10 +1406,10 @@ class AutoSetHomeMiddleware(InboundMiddleware):
                 adapter._auto_sethome_done = True  # DM seen — no further upgrades needed
             if _should_set:
                 try:
-                    from hermes_constants import get_hermes_home
-                    from hermes_cli.config import atomic_config_write, read_user_config_raw
+                    from shiva_constants import get_shiva_home
+                    from shiva_cli.config import atomic_config_write, read_user_config_raw
 
-                    _home = get_hermes_home()
+                    _home = get_shiva_home()
                     config_path = _home / "config.yaml"
                     # Write-back round-trip: raw read is correct (merged
                     # defaults must not be persisted to the user's file).

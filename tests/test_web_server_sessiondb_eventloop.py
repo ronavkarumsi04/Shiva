@@ -3,8 +3,8 @@ import asyncio
 import threading
 from pathlib import Path
 
-from hermes_cli import web_server
-from hermes_cli.web_routers import sessions as web_sessions
+from shiva_cli import web_server
+from shiva_cli.web_routers import sessions as web_sessions
 
 
 TARGET_HANDLERS = {

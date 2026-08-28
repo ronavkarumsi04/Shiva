@@ -157,11 +157,11 @@ export interface Translations {
     starting: string;
     startedInBackground: string;
     stopped: string;
-    updateHermes: string;
-    updateHermesConfirmMessage?: string;
-    updateHermesConfirmNow?: string;
-    updateHermesConfirmTitle?: string;
-    updatingHermes: string;
+    updateShiva: string;
+    updateShivaConfirmMessage?: string;
+    updateShivaConfirmNow?: string;
+    updateShivaConfirmTitle?: string;
+    updatingShiva: string;
     waitingForOutput: string;
   };
 
@@ -591,7 +591,7 @@ export interface Translations {
     fontMono?: string;
   };
 
-  // ── Achievements plugin (plugins/hermes-achievements) ──
+  // ── Achievements plugin (plugins/shiva-achievements) ──
   achievements: {
     hero: {
       kicker: string;

@@ -15,7 +15,7 @@ Security features (based on OWASP + NIST SP 800-63-4 guidance):
   - File permissions: chmod 0600 on all data files
   - Codes are never logged to stdout
 
-Storage: ~/.hermes/pairing/
+Storage: ~/.shiva/pairing/
 """
 
 import hashlib
@@ -33,10 +33,10 @@ from gateway.whatsapp_identity import (
     expand_whatsapp_aliases,
     normalize_whatsapp_identifier,
 )
-from hermes_constants import (
-    get_default_hermes_root,
-    get_hermes_dir,
-    get_hermes_home,
+from shiva_constants import (
+    get_default_shiva_root,
+    get_shiva_dir,
+    get_shiva_home,
 )
 from utils import atomic_replace
 
@@ -59,15 +59,15 @@ MAX_FAILED_ATTEMPTS = 5             # Failed approvals before lockout
 # Default (non-profile-scoped) pairing directory. Left unresolved (``None``)
 # here rather than computed eagerly: this module is imported once by the
 # long-lived gateway process at container/process boot, and computing the
-# path eagerly freezes it to whatever HERMES_HOME/profile context existed
+# path eagerly freezes it to whatever SHIVA_HOME/profile context existed
 # at that exact import moment for the rest of the process's lifetime --
-# even if a context-local override (see hermes_constants.set_hermes_home_override)
+# even if a context-local override (see shiva_constants.set_shiva_home_override)
 # is established afterward. A freshly-started, short-lived process (e.g. the
-# ``hermes pairing`` CLI) re-imports this module later with the final
+# ``shiva pairing`` CLI) re-imports this module later with the final
 # environment already in place, so it never observes the stale value -- the
 # resulting asymmetry is what made pending pairing codes issued by the
 # gateway unrecoverable while CLI-side writes to the same directory kept
-# working (NousResearch/hermes-agent#93449).
+# working (NousResearch/shiva-agent#93449).
 #
 # ``_default_pairing_dir()`` below resolves this fresh on every call in
 # production. Tests patch this attribute directly to a concrete path for
@@ -86,7 +86,7 @@ def _default_pairing_dir() -> Path:
     """
     if PAIRING_DIR is not None:
         return PAIRING_DIR
-    return get_hermes_dir("platforms/pairing", "pairing")
+    return get_shiva_dir("platforms/pairing", "pairing")
 
 
 # Platform value -> its per-platform allowlist env var. When an operator has
@@ -186,7 +186,7 @@ def _read_allowlist_env(env_var: str) -> str:
     admin endpoints) keep the legacy ``os.getenv`` read.
 
     TODO(profile-secrets): the grant mirror below still WRITES through
-    ``hermes_cli.config.save_env_value`` / ``remove_env_value``, which target
+    ``shiva_cli.config.save_env_value`` / ``remove_env_value``, which target
     the root ``.env`` — those writes need a profile-aware counterpart before
     pairing grants can be mirrored correctly under multiplexing.
     """
@@ -222,7 +222,7 @@ def _sync_allowlist_add(platform: str, user_id: str) -> None:
         return  # Already covered.
     ids.append(str(user_id))
     try:
-        from hermes_cli.config import save_env_value
+        from shiva_cli.config import save_env_value
 
         save_env_value(env_var, ",".join(ids))
     except Exception:
@@ -346,7 +346,7 @@ def _sync_allowlist_remove(platform: str, user_id: str) -> None:
     if len(remaining) == len(ids):
         return  # Not present.
     try:
-        from hermes_cli.config import save_env_value, remove_env_value
+        from shiva_cli.config import save_env_value, remove_env_value
 
         if remaining:
             save_env_value(env_var, ",".join(remaining))
@@ -370,8 +370,8 @@ def _load_json_file(path: Path) -> dict:
 def _merge_pairing_dir(active_dir: Path, alternate_dir: Path) -> None:
     """Merge split legacy/new pairing data into the active PairingStore dir.
 
-    Older installs use ``{HERMES_HOME}/pairing`` while newer code/docs may
-    write ``{HERMES_HOME}/platforms/pairing``. If both directories exist, the
+    Older installs use ``{SHIVA_HOME}/pairing`` while newer code/docs may
+    write ``{SHIVA_HOME}/platforms/pairing``. If both directories exist, the
     gateway must not silently ignore approved users sitting in the inactive
     location; otherwise already-paired Feishu users get asked for a fresh code.
     """
@@ -398,7 +398,7 @@ def _migrate_split_pairing_dirs(
     home: Optional[Path] = None,
     active: Optional[Path] = None,
 ) -> None:
-    home = home or get_hermes_home()
+    home = home or get_shiva_home()
     old_dir = home / "pairing"
     new_dir = home / "platforms" / "pairing"
     active = active if active is not None else _default_pairing_dir()
@@ -442,23 +442,23 @@ class PairingStore:
       - _rate_limits.json         : rate limit tracking
 
     When constructed with ``profile="<name>"``, storage resolves from that
-    profile's own HERMES_HOME using the same legacy/consolidated layout rules
-    as ``hermes -p <name> pairing ...``. This keeps multiplex gateways and
+    profile's own SHIVA_HOME using the same legacy/consolidated layout rules
+    as ``shiva -p <name> pairing ...``. This keeps multiplex gateways and
     profile-scoped CLI approvals on one whitelist. Without a profile, storage
-    is the global pairing directory for the current HERMES_HOME.
+    is the global pairing directory for the current SHIVA_HOME.
     """
 
     def __init__(self, profile: Optional[str] = None):
-        # Resolve storage directory lazily — tests use a temp HERMES_HOME
+        # Resolve storage directory lazily — tests use a temp SHIVA_HOME
         # and PairingStore may be constructed before the env is set.
         if profile:
-            root = get_default_hermes_root()
+            root = get_default_shiva_root()
             profile_home = (
                 root
                 if profile == "default"
                 else root / "profiles" / profile
             )
-            self._dir = get_hermes_dir(
+            self._dir = get_shiva_dir(
                 "platforms/pairing",
                 "pairing",
                 home=profile_home,
@@ -468,7 +468,7 @@ class PairingStore:
         self._dir.mkdir(parents=True, exist_ok=True)
         if profile:
             # Explicit stores must resolve exactly as a standalone
-            # ``hermes -p <profile> pairing ...`` process does. Merge the
+            # ``shiva -p <profile> pairing ...`` process does. Merge the
             # alternate old/new layout so upgrades cannot split approvals.
             _migrate_split_pairing_dirs(home=profile_home, active=self._dir)
         else:
@@ -501,7 +501,7 @@ class PairingStore:
             except PermissionError as e:
                 # Surface this loudly: a 0600 file owned by a different user
                 # (classic Docker symptom: `docker exec` runs as root and writes
-                # the file, then the gateway process — running as `hermes` after
+                # the file, then the gateway process — running as `shiva` after
                 # gosu drop — can't read it) would otherwise be swallowed by
                 # the generic OSError branch below, silently leaving the user
                 # marked unauthorized. See issue #10270.
@@ -515,9 +515,9 @@ class PairingStore:
                 euid = os.geteuid() if hasattr(os, "geteuid") else "n/a"
                 logger.warning(
                     "Pairing file %s exists but is not readable as uid=%s (%s; %s). "
-                    "If you ran `docker exec <container> hermes pairing approve ...` as root, "
-                    "re-run with `docker exec -u hermes <container> ...` and "
-                    "chown the existing file to the hermes user, or restart the "
+                    "If you ran `docker exec <container> shiva pairing approve ...` as root, "
+                    "re-run with `docker exec -u shiva <container> ...` and "
+                    "chown the existing file to the shiva user, or restart the "
                     "container so the entrypoint can fix ownership.",
                     path, euid, owner_info, e,
                 )
@@ -766,7 +766,7 @@ class PairingStore:
         """
         Approve a pending pairing request by its server-side request id.
 
-        This is the grant path for authenticated admin surfaces (``hermes
+        This is the grant path for authenticated admin surfaces (``shiva
         pairing list``, the dashboard/desktop approve buttons), which show
         pending requests but must never reveal the one-time code DM'd to the
         user. Returns ``{user_id, user_name}`` on success, ``None`` for an

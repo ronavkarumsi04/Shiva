@@ -1,1 +1,1 @@
-# Hermes plugins package
+# Shiva plugins package

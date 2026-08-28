@@ -5,7 +5,7 @@ generic ws JSON-RPC door (`host.request`).  Profile enumeration/creation
 previously lived only on the dashboard REST router, which plugins cannot
 reach, so anything "one chat per agent profile"-shaped (bot rosters,
 profile pickers, team panes) was impossible to build as a plugin.  These
-handlers delegate to the same `hermes_cli.profiles` primitives the REST
+handlers delegate to the same `shiva_cli.profiles` primitives the REST
 endpoints use.
 
 Handlers are rebound onto server.py's globals at install time — see
@@ -21,7 +21,7 @@ method = _registry.method
 
 @method("profiles.list")
 def _(rid, params: dict) -> dict:
-    """List Hermes profiles (name, path, model, description, skill count).
+    """List Shiva profiles (name, path, model, description, skill count).
 
     ``include_sessions`` (default true) additionally reports each profile's
     most recent conversation as ``last_session`` so a roster UI can paint
@@ -76,7 +76,7 @@ def _(rid, params: dict) -> dict:
             db_path = Path(profile_path) / "state.db"
             if not db_path.exists():
                 return None
-            from hermes_state import SessionDB
+            from shiva_state import SessionDB
 
             return SessionDB(db_path=db_path, read_only=True)
         except Exception:
@@ -90,7 +90,7 @@ def _(rid, params: dict) -> dict:
         at most one row). Complements ``last_session``: that field answers
         "what is the newest conversation", this answers "where is the
         forever-chat" — so a roster row's preview and its click target
-        describe the same session (hermes-agent#88200) with no client-side
+        describe the same session (shiva-agent#88200) with no client-side
         pointer involved.
 
         Exact-lookup semantics, deliberately different from the listing:
@@ -173,7 +173,7 @@ def _(rid, params: dict) -> dict:
                     tip = db.get_session(tip_id) or row
             except Exception:
                 pass
-            from hermes_state import SessionDB
+            from shiva_state import SessionDB
 
             if (tip.get("end_reason") or "") not in SessionDB.RECOVERABLE_END_REASONS:
                 return False
@@ -198,7 +198,7 @@ def _(rid, params: dict) -> dict:
         sub-agent rows and ``kanban`` dispatcher workers). Second element is
         the newest DENIED row — the freshest kanban/tool worker — so roster
         UIs can show that a profile is actively working even though worker
-        sessions never surface in conversation lists (hermes-agent#90268).
+        sessions never surface in conversation lists (shiva-agent#90268).
         Workers heartbeat ``last_activity_at`` every ≤60s while running
         (#72016), so a live worker's ``last_active`` stays fresh and the
         client can apply its own liveness window. Best-effort: any failure
@@ -252,7 +252,7 @@ def _(rid, params: dict) -> dict:
             return None, None
 
     try:
-        from hermes_cli.profiles import list_profiles
+        from shiva_cli.profiles import list_profiles
 
         include_sessions = is_truthy_value(params.get("include_sessions", True))
         out = []
@@ -329,7 +329,7 @@ def _(rid, params: dict) -> dict:
         # Capability flag: this backend's prompt builder injects the Bot Mode
         # teammate-messaging protocol (tools/bot_mode_probe.py) into every
         # session of Bot-Mode-managed installs. Clients that would otherwise
-        # append the protocol to SOUL.md (the desktop's hermes-bots plugin)
+        # append the protocol to SOUL.md (the desktop's shiva-bots plugin)
         # must skip their SOUL writes when this is present.
         return _ok(rid, {"profiles": out, "bot_mode_protocol": True})
     except Exception as e:
@@ -353,7 +353,7 @@ def _(rid, params: dict) -> dict:
     tokens / credential pools), so a profile created headlessly from a
     plugin was born with NO inference provider — the first message failed
     with "No inference provider configured" and there is no interactive
-    ``hermes setup`` in that flow to recover. A profile spawned as an
+    ``shiva setup`` in that flow to recover. A profile spawned as an
     always-available teammate must be able to think out of the box; callers
     that want an isolated/credential-free profile pass
     ``mirror_credentials: false``.
@@ -374,7 +374,7 @@ def _(rid, params: dict) -> dict:
     if not name:
         return _err(rid, 4061, "name required")
     try:
-        from hermes_cli import profiles as profiles_mod
+        from shiva_cli import profiles as profiles_mod
 
         clone_from = str(params.get("clone_from") or "").strip() or None
         clone_all = is_truthy_value(params.get("clone_all", False))
@@ -421,7 +421,7 @@ def _(rid, params: dict) -> dict:
     #
     # ``share_auth`` (default false): SKIP the auth.json copy so the new
     # profile reads OAuth/token state through the global-root fallback
-    # instead (hermes_cli.auth: profile reads fall back to the global
+    # instead (shiva_cli.auth: profile reads fall back to the global
     # store, and token refreshes write THROUGH to it). A copy forks token
     # state — the first refresh in either store invalidates the other
     # for single-use refresh tokens. Sharing keeps one live token pool
@@ -434,9 +434,9 @@ def _(rid, params: dict) -> dict:
     if is_truthy_value(params.get("mirror_credentials", True)):
         import shutil
 
-        from hermes_constants import get_hermes_home
+        from shiva_constants import get_shiva_home
 
-        launch_home = get_hermes_home()
+        launch_home = get_shiva_home()
         try:
             src_env = launch_home / ".env"
             dst_env = path / ".env"
@@ -476,19 +476,19 @@ def _(rid, params: dict) -> dict:
         "didn't work in bot mode" while working on the primary profile.
 
         Reads/writes go through the canonical loaders scoped to the target
-        profile via the context-local HERMES_HOME override — the same
+        profile via the context-local SHIVA_HOME override — the same
         mechanism as ``_write_profile_model`` (config-read-guard: no raw
         yaml on config.yaml).
         """
         try:
-            from hermes_cli.config import (
+            from shiva_cli.config import (
                 load_config_readonly,
                 read_user_config_raw,
                 save_config,
             )
-            from hermes_constants import (
-                reset_hermes_home_override,
-                set_hermes_home_override,
+            from shiva_constants import (
+                reset_shiva_home_override,
+                set_shiva_home_override,
             )
 
             src_cfg = load_config_readonly() or {}
@@ -498,7 +498,7 @@ def _(rid, params: dict) -> dict:
             if not sections:
                 return False
 
-            token = set_hermes_home_override(str(path))
+            token = set_shiva_home_override(str(path))
             try:
                 # Write-back round-trip on the raw file: load_config() would
                 # merge DEFAULT_CONFIG, making every section look present and
@@ -513,7 +513,7 @@ def _(rid, params: dict) -> dict:
                 if changed:
                     save_config(dst_cfg)
             finally:
-                reset_hermes_home_override(token)
+                reset_shiva_home_override(token)
             return changed
         except Exception:
             return False
@@ -523,7 +523,7 @@ def _(rid, params: dict) -> dict:
 
     if model and provider:
         try:
-            from hermes_cli.web_routers.profiles import _write_profile_model
+            from shiva_cli.web_routers.profiles import _write_profile_model
 
             _write_profile_model(path, provider, model)
             model_set = True
@@ -538,18 +538,18 @@ def _(rid, params: dict) -> dict:
         # ("No inference provider configured" on first message, tester
         # report). Clones bring their own model section and stay untouched.
         try:
-            from hermes_cli.config import load_config_readonly, read_user_config_raw
-            from hermes_cli.web_routers.profiles import _write_profile_model
-            from hermes_constants import (
-                reset_hermes_home_override,
-                set_hermes_home_override,
+            from shiva_cli.config import load_config_readonly, read_user_config_raw
+            from shiva_cli.web_routers.profiles import _write_profile_model
+            from shiva_constants import (
+                reset_shiva_home_override,
+                set_shiva_home_override,
             )
 
-            token = set_hermes_home_override(str(path))
+            token = set_shiva_home_override(str(path))
             try:
                 dst_model = (read_user_config_raw() or {}).get("model") or {}
             finally:
-                reset_hermes_home_override(token)
+                reset_shiva_home_override(token)
 
             if not (dst_model.get("provider") and dst_model.get("default")):
                 cfg = load_config_readonly() or {}
@@ -586,7 +586,7 @@ def _(rid, params: dict) -> dict:
     Skill enablement mirrors the disabled-list model (installed = enabled
     unless in ``skills.disabled``). Toolset enablement reports the profile's
     ``tools.enabled_toolsets`` pin, or every toolset enabled when unpinned.
-    All reads are scoped to the profile via the HERMES_HOME override.
+    All reads are scoped to the profile via the SHIVA_HOME override.
     """
     name = str(params.get("name") or "").strip()
     if not name:
@@ -594,17 +594,17 @@ def _(rid, params: dict) -> dict:
     try:
         from pathlib import Path
 
-        from hermes_cli.profiles import get_profile_dir
-        from hermes_constants import reset_hermes_home_override, set_hermes_home_override
+        from shiva_cli.profiles import get_profile_dir
+        from shiva_constants import reset_shiva_home_override, set_shiva_home_override
 
         profile_dir = Path(get_profile_dir(name))
         if not profile_dir.is_dir():
             return _err(rid, 4064, f"profile '{name}' not found")
 
-        token = set_hermes_home_override(str(profile_dir))
+        token = set_shiva_home_override(str(profile_dir))
         try:
-            from hermes_cli.config import load_config
-            from hermes_cli.skills_config import get_disabled_skills
+            from shiva_cli.config import load_config
+            from shiva_cli.skills_config import get_disabled_skills
 
             cfg = load_config() or {}
             disabled = {s.lower() for s in get_disabled_skills(cfg)}
@@ -618,15 +618,15 @@ def _(rid, params: dict) -> dict:
                         {"name": skill_name, "enabled": skill_name.lower() not in disabled}
                     )
 
-            # Toolsets: the same filtered universe the `hermes tools`
+            # Toolsets: the same filtered universe the `shiva tools`
             # checklist offers — configurable toolsets (built-in + plugin),
             # minus platform-restricted ones that don't apply here — with
             # enablement resolved the way the runtime actually resolves it.
             # The raw registry (get_all_toolsets) leaks internal platform
-            # composites (hermes-discord, feishu_drive, ...) and reports
+            # composites (shiva-discord, feishu_drive, ...) and reports
             # everything "enabled" whenever the profile has no pin, which a
             # capabilities UI then faithfully mis-renders (tester report).
-            from hermes_cli.tools_config import (
+            from shiva_cli.tools_config import (
                 _get_effective_configurable_toolsets,
                 _get_platform_tools,
                 _toolset_allowed_for_platform,
@@ -647,7 +647,7 @@ def _(rid, params: dict) -> dict:
             except Exception:
                 platform_enabled = set()
             try:
-                from hermes_cli.tools_config import _DEFAULT_OFF_TOOLSETS
+                from shiva_cli.tools_config import _DEFAULT_OFF_TOOLSETS
             except Exception:
                 _DEFAULT_OFF_TOOLSETS = set()
             toolsets_out = []
@@ -661,7 +661,7 @@ def _(rid, params: dict) -> dict:
                 )
                 # Default-off integrations (a2a, yuanbao, spotify, ...) are
                 # opt-ins; when the profile hasn't opted in they're noise in
-                # a per-profile editor — `hermes tools` / Settings is where
+                # a per-profile editor — `shiva tools` / Settings is where
                 # you turn them on globally first. Enabled ones still show.
                 # yuanbao rides the same rule: a region-specific integration
                 # that isn't in _DEFAULT_OFF_TOOLSETS but is equally opt-in.
@@ -718,7 +718,7 @@ def _(rid, params: dict) -> dict:
 
             description = ""
             try:
-                from hermes_cli.profiles import read_profile_meta
+                from shiva_cli.profiles import read_profile_meta
 
                 description = str(read_profile_meta(profile_dir).get("description") or "")
             except Exception:
@@ -741,7 +741,7 @@ def _(rid, params: dict) -> dict:
                 },
             )
         finally:
-            reset_hermes_home_override(token)
+            reset_shiva_home_override(token)
     except Exception as e:
         return _err(rid, 5063, str(e))
 
@@ -768,8 +768,8 @@ def _(rid, params: dict) -> dict:
     try:
         from pathlib import Path
 
-        from hermes_cli.profiles import get_profile_dir
-        from hermes_constants import reset_hermes_home_override, set_hermes_home_override
+        from shiva_cli.profiles import get_profile_dir
+        from shiva_constants import reset_shiva_home_override, set_shiva_home_override
 
         profile_dir = Path(get_profile_dir(name))
         if not profile_dir.is_dir():
@@ -871,7 +871,7 @@ def _(rid, params: dict) -> dict:
 
         if isinstance(params.get("description"), str):
             try:
-                from hermes_cli.profiles import write_profile_meta
+                from shiva_cli.profiles import write_profile_meta
 
                 write_profile_meta(
                     profile_dir,
@@ -898,7 +898,7 @@ def _(rid, params: dict) -> dict:
             # warning"), matching ``_apply_model_switch``.
             if not is_truthy_value(params.get("confirm_expensive_model", False)):
                 try:
-                    from hermes_cli.model_selection_guards import combined_selection_warning
+                    from shiva_cli.model_selection_guards import combined_selection_warning
 
                     warning = combined_selection_warning(model, provider=provider or None)
                     confirm_message = warning.message if warning is not None else None
@@ -906,7 +906,7 @@ def _(rid, params: dict) -> dict:
                     confirm_message = None
             if confirm_message is None:
                 try:
-                    from hermes_cli.web_routers.profiles import _write_profile_model
+                    from shiva_cli.web_routers.profiles import _write_profile_model
 
                     _write_profile_model(profile_dir, provider, model)
                     applied["model"] = True
@@ -924,7 +924,7 @@ def _(rid, params: dict) -> dict:
             launch_mcp = {}
             if isinstance(params.get("enabled_mcp_servers"), list):
                 try:
-                    from hermes_cli.config import load_config_readonly
+                    from shiva_cli.config import load_config_readonly
 
                     launch_cfg = load_config_readonly() or {}
                     if isinstance(launch_cfg.get("mcp_servers"), dict):
@@ -932,15 +932,15 @@ def _(rid, params: dict) -> dict:
                 except Exception:
                     launch_mcp = {}
 
-            token = set_hermes_home_override(str(profile_dir))
+            token = set_shiva_home_override(str(profile_dir))
             try:
-                from hermes_cli.config import load_config, save_config
+                from shiva_cli.config import load_config, save_config
 
                 cfg = load_config() or {}
 
                 if isinstance(params.get("disabled_skills"), list):
                     try:
-                        from hermes_cli.skills_config import save_disabled_skills
+                        from shiva_cli.skills_config import save_disabled_skills
 
                         wanted = {
                             str(s).strip()
@@ -1005,7 +1005,7 @@ def _(rid, params: dict) -> dict:
                     except Exception:
                         applied["mcp_servers"] = False
             finally:
-                reset_hermes_home_override(token)
+                reset_shiva_home_override(token)
 
         result = {"ok": all(applied.values()) if applied else True, "applied": applied}
         if confirm_message is not None:
@@ -1041,7 +1041,7 @@ def _(rid, params: dict) -> dict:
         import re as _re
         from pathlib import Path as _Path
 
-        from hermes_cli.profiles import get_profile_dir
+        from shiva_cli.profiles import get_profile_dir
 
         profile_dir = _Path(get_profile_dir(name))
         if not profile_dir.is_dir():
@@ -1120,7 +1120,7 @@ def _(rid, params: dict) -> dict:
         import base64
         from pathlib import Path as _Path
 
-        from hermes_cli.profiles import get_profile_dir
+        from shiva_cli.profiles import get_profile_dir
 
         profile_dir = _Path(get_profile_dir(name))
         if not profile_dir.is_dir():

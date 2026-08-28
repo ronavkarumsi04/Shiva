@@ -2,7 +2,7 @@ import { Codecs, persistentAtom } from '@/lib/persisted'
 import { stableArray } from '@/lib/stable-array'
 import { readKey } from '@/lib/storage'
 import { $activeGatewayProfile, normalizeProfileKey } from '@/store/profile'
-import type { SessionInfo } from '@/types/hermes'
+import type { SessionInfo } from '@/types/shiva'
 
 import {
   $cronSessions,
@@ -68,13 +68,13 @@ const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
 export const $sessionSeenCounts = persistentAtom<SeenCounts>(
-  'hermes.desktop.sessionSeenCounts',
+  'shiva.desktop.sessionSeenCounts',
   {},
   Codecs.json(sanitizeSeenCounts)
 )
 
 export const $unreadFinishedMarkers = persistentAtom<Markers>(
-  'hermes.desktop.unreadFinishedSessions',
+  'shiva.desktop.unreadFinishedSessions',
   {},
   Codecs.json(sanitizeMarkers)
 )
@@ -514,7 +514,7 @@ function rehydrateFromDiskOnce(): void {
   rehydratedFromDisk = true
 
   try {
-    const rawSeen = readKey('hermes.desktop.sessionSeenCounts')
+    const rawSeen = readKey('shiva.desktop.sessionSeenCounts')
     const diskSeen = rawSeen ? sanitizeSeenCounts(JSON.parse(rawSeen) as unknown) : {}
     const memorySeen = $sessionSeenCounts.get()
     const mergedSeen: SeenCounts = { ...diskSeen }
@@ -525,7 +525,7 @@ function rehydrateFromDiskOnce(): void {
 
     $sessionSeenCounts.set(mergedSeen)
 
-    const rawMarkers = readKey('hermes.desktop.unreadFinishedSessions')
+    const rawMarkers = readKey('shiva.desktop.unreadFinishedSessions')
     const diskMarkers = rawMarkers ? sanitizeMarkers(JSON.parse(rawMarkers) as unknown) : {}
     const memoryMarkers = $unreadFinishedMarkers.get()
     const merged: Markers = { ...diskMarkers }

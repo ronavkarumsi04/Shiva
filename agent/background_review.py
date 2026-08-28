@@ -12,7 +12,7 @@ credentials, cached system prompt) so it hits the same prefix cache and
 uses the same auth.  It runs with a tool whitelist limited to memory and
 skill management tools; everything else is denied at runtime.
 
-See the ``hermes-agent-dev`` skill (``references/self-improvement-loop.md``)
+See the ``shiva-agent-dev`` skill (``references/self-improvement-loop.md``)
 for invariants and PR review criteria.
 """
 
@@ -233,7 +233,7 @@ def _background_review_task_config(
     if task_cfg is not None:
         return task_cfg if isinstance(task_cfg, dict) else {}
     try:
-        from hermes_cli.config import load_config_readonly
+        from shiva_cli.config import load_config_readonly
 
         cfg = load_config_readonly()
     except Exception:
@@ -271,7 +271,7 @@ def load_background_review_settings() -> tuple[bool, Dict[str, Any]]:
     WARNING so the cost-incurring path is visible.
     """
     try:
-        from hermes_cli.config import load_config_readonly
+        from shiva_cli.config import load_config_readonly
         from utils import is_truthy_value
 
         cfg = load_config_readonly()
@@ -357,7 +357,7 @@ def _resolve_review_runtime(
     if task_provider == (agent.provider or "") and task_model == (agent.model or ""):
         return parent  # same model/provider as parent -> not routed
     try:
-        from hermes_cli.runtime_provider import resolve_runtime_provider
+        from shiva_cli.runtime_provider import resolve_runtime_provider
         rp = resolve_runtime_provider(
             requested=task_provider,
             target_model=task_model,
@@ -386,12 +386,12 @@ def _parent_can_emit_tool_calls(agent: Any) -> bool:
     """Whether a fork inheriting ``agent``'s runtime could act at all.
 
     The review fork's entire job is to emit ``memory`` / ``skill_manage`` tool
-    calls. A provider that IS an autonomous agent reaches Hermes through a client
-    shim, and a shim that cannot carry Hermes tool calls back turns the fork into
+    calls. A provider that IS an autonomous agent reaches Shiva through a client
+    shim, and a shim that cannot carry Shiva tool calls back turns the fork into
     a guaranteed no-op — one that still pays for a full agent spawn (a whole CLI
     process, sometimes a JVM) on every review cadence. The in-tree ACP client CAN
     carry them (it uses the text bridge in ``agent/acp_openai_bridge.py``); this
-    exists so a shim that can't declares ``SUPPORTS_HERMES_TOOL_CALLS = False``
+    exists so a shim that can't declares ``SUPPORTS_SHIVA_TOOL_CALLS = False``
     and is skipped instead of burning a spawn. Anything that doesn't say
     otherwise is assumed capable, so ordinary providers are unaffected.
     """
@@ -399,7 +399,7 @@ def _parent_can_emit_tool_calls(agent: Any) -> bool:
     for candidate in (client, type(client) if client is not None else None):
         if candidate is None:
             continue
-        supported = getattr(candidate, "SUPPORTS_HERMES_TOOL_CALLS", None)
+        supported = getattr(candidate, "SUPPORTS_SHIVA_TOOL_CALLS", None)
         if supported is not None:
             return bool(supported)
     return True
@@ -561,10 +561,10 @@ _SKILL_REVIEW_PROMPT = (
     "If you notice two existing skills that overlap, note it in your "
     "reply — the background curator handles consolidation at scale.\n\n"
     "Protected skills (DO NOT edit these):\n"
-    "  • Bundled skills (shipped with Hermes, e.g. 'hermes-agent').\n"
-    "  • Hub-installed skills (installed via 'hermes skills install').\n"
+    "  • Bundled skills (shipped with Shiva, e.g. 'shiva-agent').\n"
+    "  • Hub-installed skills (installed via 'shiva skills install').\n"
     "  • Skills in skills.external_dirs (externally owned).\n"
-    "  • PINNED skills (marked via 'hermes curator pin'). You are an "
+    "  • PINNED skills (marked via 'shiva curator pin'). You are an "
     "autonomous no-user-present actor, so pin blocks your writes too — "
     "content updates included. Only the user, in a foreground session, "
     "can change a pinned skill.\n"
@@ -574,7 +574,7 @@ _SKILL_REVIEW_PROMPT = (
     "This includes skills that were loaded or consulted this session: "
     "being in play does not make one yours to edit. If such a skill is "
     "wrong or outdated, say so in your reply and recommend "
-    "'hermes curator adopt <name>' — do not try to patch it.\n"
+    "'shiva curator adopt <name>' — do not try to patch it.\n"
     "If the only skills that need updating are protected, say\n"
     "'Nothing to save.' and stop.\n\n"
     "Do NOT capture (these become persistent self-imposed constraints "
@@ -677,17 +677,17 @@ _COMBINED_REVIEW_PROMPT = (
     "If you notice overlapping existing skills, mention it — the "
     "background curator handles consolidation.\n\n"
     "Protected skills (DO NOT edit these):\n"
-    "  • Bundled skills (shipped with Hermes, e.g. 'hermes-agent').\n"
-    "  • Hub-installed skills (installed via 'hermes skills install').\n"
+    "  • Bundled skills (shipped with Shiva, e.g. 'shiva-agent').\n"
+    "  • Hub-installed skills (installed via 'shiva skills install').\n"
     "  • Skills in skills.external_dirs (externally owned).\n"
-    "  • PINNED skills (marked via 'hermes curator pin'). Pin blocks "
+    "  • PINNED skills (marked via 'shiva curator pin'). Pin blocks "
     "autonomous writes entirely — content updates included — because no "
     "user is present to consent. Only a foreground session can change one.\n"
     "  • USER-OWNED skills — anything not curator-managed (hand-written, "
     "URL-installed, or created by a foreground agent at the user's "
     "request). Your writes to these WILL be refused, including to skills "
     "loaded or consulted this session. If one is wrong, say so in your "
-    "reply and recommend 'hermes curator adopt <name>' instead.\n"
+    "reply and recommend 'shiva curator adopt <name>' instead.\n"
     "If the only skills that need updating are protected, say\n"
     "'Nothing to save.' and stop.\n\n"
     "Do NOT capture as skills (these become persistent self-imposed "
@@ -960,7 +960,7 @@ def build_memory_write_metadata(
         ),
         "session_id": agent.session_id or "",
         "parent_session_id": agent._parent_session_id or "",
-        "platform": agent.platform or os.environ.get("HERMES_SESSION_SOURCE", "cli"),
+        "platform": agent.platform or os.environ.get("SHIVA_SESSION_SOURCE", "cli"),
         "tool_name": "memory",
     }
     if task_id:
@@ -1141,7 +1141,7 @@ def _run_review_in_thread(
     except Exception:
         pass
 
-    # An agent-as-provider whose client can't carry Hermes tool calls back would
+    # An agent-as-provider whose client can't carry Shiva tool calls back would
     # produce a fork that spawns a whole agent and then cannot write anything.
     # Don't spawn it — point at the override that does work. Checked BEFORE the
     # thread-scoped silence below so the warning is not swallowed, and
@@ -1152,7 +1152,7 @@ def _run_review_in_thread(
         _resolve_review_runtime(agent, task_cfg).get("routed")
     ):
         logger.warning(
-            "Background review skipped: provider %r cannot emit Hermes tool calls, "
+            "Background review skipped: provider %r cannot emit Shiva tool calls, "
             "so the review fork could not write memories or skills. Set "
             "auxiliary.background_review.{provider,model} to route the review to "
             "a normal model.",
@@ -1353,7 +1353,7 @@ def _run_review_in_thread(
             # the review fork's outbound HTTP request hits the same
             # Anthropic/OpenRouter prefix cache the parent warmed.
             # Without this, the fork rebuilds the system prompt from
-            # scratch (fresh _hermes_now() timestamp, fresh
+            # scratch (fresh _shiva_now() timestamp, fresh
             # session_id, narrower toolset → different skills_prompt)
             # and the byte-exact prefix-cache key misses. See
             # issue #25322 and PR #17276 for the full analysis +
@@ -1492,7 +1492,7 @@ def _run_review_in_thread(
                     agent._active_children.append(review_agent)
 
             from model_tools import get_tool_definitions
-            from hermes_cli.plugins import (
+            from shiva_cli.plugins import (
                 set_thread_tool_whitelist,
                 clear_thread_tool_whitelist,
             )

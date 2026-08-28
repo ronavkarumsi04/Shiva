@@ -34,10 +34,10 @@ function expectRequestHeaders(
 ) {
   const callback = vi.fn()
 
-  applyRemoteRequestHeaders({ url, requestHeaders: { Origin: 'app://hermes' } }, callback, store.headersFor)
+  applyRemoteRequestHeaders({ url, requestHeaders: { Origin: 'app://shiva' } }, callback, store.headersFor)
 
   expect(callback).toHaveBeenCalledOnce()
-  expect(callback).toHaveBeenCalledWith(expected ? { requestHeaders: { Origin: 'app://hermes', ...expected } } : {})
+  expect(callback).toHaveBeenCalledWith(expected ? { requestHeaders: { Origin: 'app://shiva', ...expected } } : {})
 }
 
 function expectNoHeadersForNearbyUrls(store: ReturnType<typeof createRemoteWsHeaderStore>, exactUrl: string) {

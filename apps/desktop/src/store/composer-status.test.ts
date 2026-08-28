@@ -1,4 +1,4 @@
-import { JsonRpcGatewayError } from '@hermes/shared'
+import { JsonRpcGatewayError } from '@shiva/shared'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {

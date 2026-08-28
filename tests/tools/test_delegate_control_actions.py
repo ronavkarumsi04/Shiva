@@ -512,7 +512,7 @@ def _child_completion_evt(task_id="sa-9-supp0001", sid="proc_childnoise01"):
 def test_child_completion_notification_suppressed_by_default(monkeypatch):
     """With no user config, subagent-owned completion events are DROPPED from
     the parent drain (not delivered, not requeued)."""
-    import hermes_cli.config as _cfg
+    import shiva_cli.config as _cfg
     from tools.process_registry import ProcessRegistry
 
     monkeypatch.setattr(_cfg, "read_raw_config", lambda *a, **k: {})
@@ -529,7 +529,7 @@ def test_async_delegation_event_from_child_never_suppressed(monkeypatch):
     """The delegation result itself (type async_delegation) always flows to
     the parent even while the same child's process notifications are
     suppressed."""
-    import hermes_cli.config as _cfg
+    import shiva_cli.config as _cfg
     from tools.process_registry import ProcessRegistry
 
     monkeypatch.setattr(_cfg, "read_raw_config", lambda *a, **k: {})
@@ -555,7 +555,7 @@ def test_async_delegation_event_from_child_never_suppressed(monkeypatch):
 
 def test_parent_owned_completion_unaffected_by_suppression(monkeypatch):
     """Processes the parent itself started (non sa- task_id) still notify."""
-    import hermes_cli.config as _cfg
+    import shiva_cli.config as _cfg
     from tools.process_registry import ProcessRegistry
 
     monkeypatch.setattr(_cfg, "read_raw_config", lambda *a, **k: {})
@@ -578,7 +578,7 @@ def test_parent_owned_completion_unaffected_by_suppression(monkeypatch):
 def test_surface_flag_true_restores_child_notification_delivery(monkeypatch):
     """delegation.surface_child_process_notifications=true restores the legacy
     behavior: child completion delivered with attribution."""
-    import hermes_cli.config as _cfg
+    import shiva_cli.config as _cfg
     from tools.process_registry import ProcessRegistry
 
     monkeypatch.setattr(
@@ -599,7 +599,7 @@ def test_surface_flag_true_restores_child_notification_delivery(monkeypatch):
 
 def test_child_watch_match_suppressed_by_default(monkeypatch):
     """watch_match events from sa- sessions follow the same suppression."""
-    import hermes_cli.config as _cfg
+    import shiva_cli.config as _cfg
     from tools.process_registry import ProcessRegistry
 
     monkeypatch.setattr(_cfg, "read_raw_config", lambda *a, **k: {})

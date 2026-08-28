@@ -133,11 +133,11 @@ n.cook(force=True)
 actual = str(n.width) + 'x' + str(n.height)
 ```
 
-## 5. Hermes Configuration
+## 5. Shiva Configuration
 
 ### Config location
 
-`$HERMES_HOME/config.yaml` (defaults to `~/.hermes/config.yaml` when `HERMES_HOME` is unset)
+`$SHIVA_HOME/config.yaml` (defaults to `~/.shiva/config.yaml` when `SHIVA_HOME` is unset)
 
 ### MCP entry format
 
@@ -150,7 +150,7 @@ mcpServers:
 
 ### After config changes
 
-Restart the Hermes session for changes to take effect. The MCP connection is
+Restart the Shiva session for changes to take effect. The MCP connection is
 established at session startup.
 
 ### Verifying MCP tools are available

@@ -1,9 +1,9 @@
 import type { AppendMessage, ThreadMessage } from '@assistant-ui/react'
-import { JsonRpcGatewayError } from '@hermes/shared'
+import { JsonRpcGatewayError } from '@shiva/shared'
 import { useStore } from '@nanostores/react'
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 
-import { transcribeAudio } from '@/hermes'
+import { transcribeAudio } from '@/shiva'
 import { useI18n } from '@/i18n'
 import { stripAnsi } from '@/lib/ansi'
 import { type ChatMessage, textPart } from '@/lib/chat-messages'
@@ -489,7 +489,7 @@ export function usePromptActions({
   // Session resume can be routed through a registry connection while the
   // render-time requestGateway still points at the local default socket. Keep
   // every follow-up session RPC on the same composite owner; otherwise resume
-  // succeeds on HERMES01 and prompt.submit immediately fails locally with
+  // succeeds on SHIVA01 and prompt.submit immediately fails locally with
   // "session not found".
   const requestForPromptSession = useCallback<GatewayRequest>(
     (method, params = {}, timeoutMs) => {
@@ -528,7 +528,7 @@ export function usePromptActions({
 
   // Queue a handoff of this session to a messaging platform and watch it to
   // a terminal state. We only write the request through the gateway; the
-  // separate `hermes gateway` process performs the actual transfer, so we
+  // separate `shiva gateway` process performs the actual transfer, so we
   // poll `handoff.state` (mirror of the CLI's block-poll) for the result.
   const handoffSession = useCallback(
     async (

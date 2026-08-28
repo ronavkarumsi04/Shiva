@@ -1,7 +1,7 @@
 """Bot Mode cross-connection relay — connections ARE the peer set.
 
 Every gateway connected to the user's Desktop (local, remote URL, SSH,
-Hermes Cloud, docker) is a persistent line. This module is the gateway-side
+Shiva Cloud, docker) is a persistent line. This module is the gateway-side
 half of the relay that rides those lines so agents on ANY connected gateway
 can find and message agents on ANY other, with `message_agent` as the one
 send path (Teknium ruling, Aug 2026 — the peers-vs-connections split was
@@ -24,7 +24,7 @@ How the relay works (three files under ``<root>/bot_relay/``):
 
 The gateway never holds another connection's credentials; the Desktop owns
 every socket and does all cross-connection I/O. Everything here is plain
-file plumbing on the gateway's own HERMES root — no network. The public
+file plumbing on the gateway's own SHIVA root — no network. The public
 helpers never raise, with one deliberate exception: ``enqueue_envelope``
 raises ``EnvelopeRefusedError`` when the target is definitively offline, so
 the sender fails fast instead of queueing a DM nobody will drain (#93091).
@@ -68,7 +68,7 @@ REPLY_WAIT_SECONDS = 900
 STALE_AFTER_SECONDS = 6 * 3600
 
 # Fallback envelope TTL when config is unreachable — mirrors the
-# ``bot_mode.envelope_ttl_seconds`` default in hermes_cli/config_defaults.py.
+# ``bot_mode.envelope_ttl_seconds`` default in shiva_cli/config_defaults.py.
 # Envelopes older than the TTL are refused at drain time with a
 # 'queued_expired' error reply instead of being delivered late.
 DEFAULT_ENVELOPE_TTL_SECONDS = 900
@@ -124,7 +124,7 @@ def _normalize_roster_row(row: Any) -> Optional[dict]:
     if not profile or not connection_id:
         return None
     if not handle:
-        handle = "hermes" if profile == "default" else profile
+        handle = "shiva" if profile == "default" else profile
     if (
         not _HANDLE_RE.match(handle)
         or not _HANDLE_RE.match(profile)
@@ -254,7 +254,7 @@ def _envelope_ttl_seconds() -> int:
     drain-time expiry.
     """
     try:
-        from hermes_cli.config import load_config_readonly
+        from shiva_cli.config import load_config_readonly
 
         cfg = load_config_readonly() or {}
         val = (cfg.get("bot_mode") or {}).get("envelope_ttl_seconds")
@@ -468,7 +468,7 @@ def cleanup_bot_relay_artifacts(max_age_hours: float | None = None) -> int:
     """
     del max_age_hours  # relay staleness is governed by STALE_AFTER_SECONDS
     try:
-        home = Path(os.getenv("HERMES_HOME") or os.path.expanduser("~/.hermes"))
+        home = Path(os.getenv("SHIVA_HOME") or os.path.expanduser("~/.shiva"))
         root = home.parent.parent if home.parent.name == "profiles" else home
         base = relay_root(root)
         if not base.is_dir():
@@ -535,12 +535,12 @@ def waiter_command(root: Path | str, envelope: dict) -> str:
 # ── delivery command (used by the deliver RPC on the TARGET gateway) ────────
 
 
-def _hermes_cli() -> str:
-    """Resolve the hermes CLI beside this gateway's own interpreter.
+def _shiva_cli() -> str:
+    """Resolve the shiva CLI beside this gateway's own interpreter.
 
     The deliver RPC runs on the target gateway, whose process is the venv
-    python — its bin/Scripts directory holds the matching ``hermes``
-    entrypoint. A bare ``"hermes"`` relies on PATH, which is exactly what
+    python — its bin/Scripts directory holds the matching ``shiva``
+    entrypoint. A bare ``"shiva"`` relies on PATH, which is exactly what
     service contexts (systemd units, desktop launchers, non-login SSH
     shells) do not provide, so delivery died with ENOENT there (#93590).
     When no sibling exists (e.g. running from a source tree without an
@@ -549,19 +549,19 @@ def _hermes_cli() -> str:
     name, preserving today's behavior for interactive shells.
     """
     exe = Path(sys.executable or "")
-    sibling = exe.parent / ("hermes.exe" if sys.platform == "win32" else "hermes")
+    sibling = exe.parent / ("shiva.exe" if sys.platform == "win32" else "shiva")
     if sibling.is_file():
         return str(sibling)
-    found = shutil.which("hermes")
+    found = shutil.which("shiva")
     if found:
         return found
-    return "hermes"
+    return "shiva"
 
 
 def local_delivery_command(profile: str, query_file: str) -> list[str]:
     """argv that delivers a DM into ``profile``'s Bot Chat on THIS gateway."""
     return [
-        _hermes_cli(),
+        _shiva_cli(),
         "-p",
         profile,
         "chat",
@@ -579,7 +579,7 @@ def local_delivery_command(profile: str, query_file: str) -> list[str]:
 # ── per-profile turn lock (#93091) ───────────────────────────────────────────
 #
 # Two deliveries into the SAME target profile must never run their Bot Chat
-# turns concurrently: deliveries spawn separate ``hermes`` subprocesses, so
+# turns concurrently: deliveries spawn separate ``shiva`` subprocesses, so
 # an in-memory mutex is useless — the lock is a per-profile lockfile under
 # ``<root>/bot_relay/locks/`` held with ``fcntl.flock`` for exactly the turn
 # execution window. flock is released by the kernel when the holder's fd
@@ -612,7 +612,7 @@ class TurnBusyError(RuntimeError):
 def turn_wait_seconds() -> float:
     """Wait budget for a queued delivery turn (config, lazily read)."""
     try:
-        from hermes_cli.config import cfg_get, load_config
+        from shiva_cli.config import cfg_get, load_config
 
         val = cfg_get(load_config(), "bot_mode", "turn_wait_seconds", default=None)
         if val is not None:

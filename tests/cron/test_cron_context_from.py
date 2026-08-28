@@ -11,20 +11,20 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 @pytest.fixture
 def cron_env(tmp_path, monkeypatch):
-    """Isolated cron environment with temp HERMES_HOME."""
-    hermes_home = tmp_path / ".hermes"
-    hermes_home.mkdir()
-    (hermes_home / "cron").mkdir()
-    (hermes_home / "cron" / "output").mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    """Isolated cron environment with temp SHIVA_HOME."""
+    shiva_home = tmp_path / ".shiva"
+    shiva_home.mkdir()
+    (shiva_home / "cron").mkdir()
+    (shiva_home / "cron" / "output").mkdir()
+    monkeypatch.setenv("SHIVA_HOME", str(shiva_home))
 
     import cron.jobs as jobs_mod
-    monkeypatch.setattr(jobs_mod, "HERMES_DIR", hermes_home)
-    monkeypatch.setattr(jobs_mod, "CRON_DIR", hermes_home / "cron")
-    monkeypatch.setattr(jobs_mod, "JOBS_FILE", hermes_home / "cron" / "jobs.json")
-    monkeypatch.setattr(jobs_mod, "OUTPUT_DIR", hermes_home / "cron" / "output")
+    monkeypatch.setattr(jobs_mod, "SHIVA_DIR", shiva_home)
+    monkeypatch.setattr(jobs_mod, "CRON_DIR", shiva_home / "cron")
+    monkeypatch.setattr(jobs_mod, "JOBS_FILE", shiva_home / "cron" / "jobs.json")
+    monkeypatch.setattr(jobs_mod, "OUTPUT_DIR", shiva_home / "cron" / "output")
 
-    return hermes_home
+    return shiva_home
 
 
 class TestJobContextFromField:

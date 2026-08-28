@@ -1,6 +1,6 @@
 # Langfuse Observability Plugin
 
-This plugin ships bundled with Hermes but is **opt-in** — it only loads when
+This plugin ships bundled with Shiva but is **opt-in** — it only loads when
 you explicitly enable it.
 
 ## Enable
@@ -9,21 +9,21 @@ Pick one:
 
 ```bash
 # Interactive: walks you through credentials + SDK install + enable
-hermes tools  # → Langfuse Observability
+shiva tools  # → Langfuse Observability
 
 # Manual
 pip install langfuse
-hermes plugins enable observability/langfuse
+shiva plugins enable observability/langfuse
 ```
 
 ## Required credentials
 
-Set these in `~/.hermes/.env` (or via `hermes tools`):
+Set these in `~/.shiva/.env` (or via `shiva tools`):
 
 ```bash
-HERMES_LANGFUSE_PUBLIC_KEY=pk-lf-...
-HERMES_LANGFUSE_SECRET_KEY=sk-lf-...
-HERMES_LANGFUSE_BASE_URL=https://cloud.langfuse.com   # or your self-hosted URL
+SHIVA_LANGFUSE_PUBLIC_KEY=pk-lf-...
+SHIVA_LANGFUSE_SECRET_KEY=sk-lf-...
+SHIVA_LANGFUSE_BASE_URL=https://cloud.langfuse.com   # or your self-hosted URL
 ```
 
 Without the SDK or credentials the hooks no-op silently — the plugin fails
@@ -32,28 +32,28 @@ open.
 ## Verify
 
 ```bash
-hermes plugins list                 # observability/langfuse should show "enabled"
-hermes chat -q "hello"              # then check Langfuse for a "Hermes turn" trace
+shiva plugins list                 # observability/langfuse should show "enabled"
+shiva chat -q "hello"              # then check Langfuse for a "Shiva turn" trace
 ```
 
-Generation observations include the Hermes system prompt when the provider
+Generation observations include the Shiva system prompt when the provider
 uses a separate `system` param (Anthropic Messages API). Open an **LLM call**
-child span to inspect `role: system` (truncated via `HERMES_LANGFUSE_MAX_CHARS`).
+child span to inspect `role: system` (truncated via `SHIVA_LANGFUSE_MAX_CHARS`).
 
 ## Optional tuning
 
 ```bash
-HERMES_LANGFUSE_ENV=production       # environment tag
-HERMES_LANGFUSE_RELEASE=v1.0.0       # release tag
-HERMES_LANGFUSE_SAMPLE_RATE=0.5      # sample 50% of traces
-HERMES_LANGFUSE_MAX_CHARS=12000      # max chars per field (default: 12000)
-HERMES_LANGFUSE_CAPTURE=sanitized    # content capture mode (see below)
-HERMES_LANGFUSE_DEBUG=true           # verbose plugin logging
+SHIVA_LANGFUSE_ENV=production       # environment tag
+SHIVA_LANGFUSE_RELEASE=v1.0.0       # release tag
+SHIVA_LANGFUSE_SAMPLE_RATE=0.5      # sample 50% of traces
+SHIVA_LANGFUSE_MAX_CHARS=12000      # max chars per field (default: 12000)
+SHIVA_LANGFUSE_CAPTURE=sanitized    # content capture mode (see below)
+SHIVA_LANGFUSE_DEBUG=true           # verbose plugin logging
 ```
 
 ## Capture modes
 
-`HERMES_LANGFUSE_CAPTURE` controls how much *content* (prompts, responses,
+`SHIVA_LANGFUSE_CAPTURE` controls how much *content* (prompts, responses,
 tool arguments/results) is exported. Structural metadata — IDs, roles, tool
 names, token usage, cost, timing — is always captured in every mode.
 
@@ -79,5 +79,5 @@ For personal sessions or shared Langfuse projects, prefer `metadata`.
 ## Disable
 
 ```bash
-hermes plugins disable observability/langfuse
+shiva plugins disable observability/langfuse
 ```

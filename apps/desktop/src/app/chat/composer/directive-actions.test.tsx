@@ -7,7 +7,7 @@ import { $previewTabs, closeRightRail } from '@/store/preview'
 import { ComposerDirectiveActions } from './directive-actions'
 import { refChipElement } from './rich-editor'
 
-const desktopWindow = window as unknown as { hermesDesktop?: Window['hermesDesktop'] }
+const desktopWindow = window as unknown as { shivaDesktop?: Window['shivaDesktop'] }
 
 const openSession = vi.fn()
 
@@ -48,7 +48,7 @@ afterEach(() => {
   cleanup()
   document.body.replaceChildren()
   closeRightRail()
-  delete desktopWindow.hermesDesktop
+  delete desktopWindow.shivaDesktop
   openSession.mockReset()
   vi.useRealTimers()
 })
@@ -67,7 +67,7 @@ describe('ComposerDirectiveActions', () => {
   it('opens a url in the in-app browser rather than navigating the app', async () => {
     const openExternal = vi.fn().mockResolvedValue(undefined)
 
-    desktopWindow.hermesDesktop = { openExternal } as unknown as Window['hermesDesktop']
+    desktopWindow.shivaDesktop = { openExternal } as unknown as Window['shivaDesktop']
 
     const editor = mountEditor([{ kind: 'url', value: 'https://example.com/docs' }])
 

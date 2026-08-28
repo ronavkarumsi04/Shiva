@@ -1,77 +1,77 @@
 ---
 sidebar_position: 1
 title: "CLI Interface"
-description: "Master the Hermes Agent terminal interface — commands, keybindings, personalities, and more"
+description: "Master the Shiva Agent terminal interface — commands, keybindings, personalities, and more"
 ---
 
 # CLI Interface
 
-Hermes Agent's CLI is a full terminal user interface (TUI) — not a web UI. It features multiline editing, slash-command autocomplete, conversation history, interrupt-and-redirect, and streaming tool output. Built for people who live in the terminal.
+Shiva Agent's CLI is a full terminal user interface (TUI) — not a web UI. It features multiline editing, slash-command autocomplete, conversation history, interrupt-and-redirect, and streaming tool output. Built for people who live in the terminal.
 
 :::tip First-time setup
-One command — `hermes setup --portal` — and you're ready to `hermes chat`. See [Nous Portal](/integrations/nous-portal).
+One command — `shiva setup --portal` — and you're ready to `shiva chat`. See [Nous Portal](/integrations/nous-portal).
 :::
 
 :::tip
-Hermes also ships a modern TUI with modal overlays, mouse selection, and non-blocking input. Launch it with `hermes --tui` — see the [TUI](tui.md) guide.
+Shiva also ships a modern TUI with modal overlays, mouse selection, and non-blocking input. Launch it with `shiva --tui` — see the [TUI](tui.md) guide.
 :::
 
 ## Running the CLI
 
 ```bash
 # Start an interactive session (default)
-hermes
+shiva
 
 # Single query mode (non-interactive)
-hermes chat -q "Hello"
+shiva chat -q "Hello"
 
 # Single query from a file or stdin — nothing is shell-interpreted, so
 # arbitrary text (quotes, $(...), backticks) arrives verbatim
-hermes chat --query-file prompt.txt
-hermes chat --query-file - < prompt.txt
+shiva chat --query-file prompt.txt
+shiva chat --query-file - < prompt.txt
 
 # With a specific model
-hermes chat --model "anthropic/claude-sonnet-4"
+shiva chat --model "anthropic/claude-sonnet-4"
 
 # With a specific provider
-hermes chat --provider nous        # Use Nous Portal
-hermes chat --provider openrouter  # Force OpenRouter
+shiva chat --provider nous        # Use Nous Portal
+shiva chat --provider openrouter  # Force OpenRouter
 
 # With specific toolsets
-hermes chat --toolsets "web,terminal,skills"
+shiva chat --toolsets "web,terminal,skills"
 
 # Start with one or more skills preloaded
-hermes -s hermes-agent-dev,github-auth
-hermes chat -s github-pr-workflow -q "open a draft PR"
+shiva -s shiva-agent-dev,github-auth
+shiva chat -s github-pr-workflow -q "open a draft PR"
 
 # Resume previous sessions
-hermes --continue             # Resume the most recent CLI session (-c)
-hermes --resume <session_id>  # Resume a specific session by ID (-r)
-hermes --resume latest        # Resume the most recent session (same as -c)
-hermes --resume latest --in ./dir  # Resume ./dir's latest session, staying in ./dir
+shiva --continue             # Resume the most recent CLI session (-c)
+shiva --resume <session_id>  # Resume a specific session by ID (-r)
+shiva --resume latest        # Resume the most recent session (same as -c)
+shiva --resume latest --in ./dir  # Resume ./dir's latest session, staying in ./dir
 
 # Verbose mode (debug output)
-hermes chat --verbose
+shiva chat --verbose
 
 # Isolated git worktree (for running multiple agents in parallel)
-hermes -w                         # Interactive mode in worktree
-hermes -w -z "Fix issue #123"     # Single query in worktree
+shiva -w                         # Interactive mode in worktree
+shiva -w -z "Fix issue #123"     # Single query in worktree
 ```
 
 ### Worktree cleanup
 
-`hermes -w` sessions create disposable worktrees under `<repo>/.worktrees/`.
+`shiva -w` sessions create disposable worktrees under `<repo>/.worktrees/`.
 A conservative pruner runs automatically at startup (it only removes clean,
 fully-merged scratch trees past an age threshold), but preserved trees and
 merged local branches still accumulate on busy machines. Reclaim them
 explicitly:
 
 ```bash
-hermes worktree list              # audit: age, size, verdict, reason per tree
-hermes worktree prune             # remove safe trees + delete merged branches
-hermes worktree prune --dry-run   # show the plan without changing anything
-hermes worktree prune --trees-only     # leave local branches alone
-hermes worktree prune --branches-only  # leave worktrees alone
+shiva worktree list              # audit: age, size, verdict, reason per tree
+shiva worktree prune             # remove safe trees + delete merged branches
+shiva worktree prune --dry-run   # show the plan without changing anything
+shiva worktree prune --trees-only     # leave local branches alone
+shiva worktree prune --branches-only  # leave worktrees alone
 ```
 
 Inside a session, `/worktree prune [--dry-run]` does the same (and never
@@ -84,9 +84,9 @@ Safety guarantees (all modes, any age):
   rebase/squash-merged upstream are detected via `git cherry`
   patch-equivalence and count as merged, which is what lets the dominant
   "merged PR, tree preserved forever" leak finally reclaim.
-- Trees **in use by a running hermes session** are never touched.
+- Trees **in use by a running shiva session** are never touched.
 - **Untracked-only scratch** (PR body drafts, notes) is archived to
-  `~/.hermes/archive/worktree-prune/` before its tree is removed — never
+  `~/.shiva/archive/worktree-prune/` before its tree is removed — never
   destroyed.
 - Branch deletion is content-gated, not name-gated: any local branch whose
   commits are all on upstream is safe to delete; branches with unique work,
@@ -97,27 +97,27 @@ notice pointing at these commands.
 
 ### Plugin management
 
-The `hermes plugins` commands manage native Hermes plugins and portable Agent
+The `shiva plugins` commands manage native Shiva plugins and portable Agent
 Plugins v1 packages through the same opt-in workflow:
 
 ```bash
-hermes plugins install owner/repository --no-enable
-hermes plugins list
-hermes plugins enable <plugin-name>
-hermes plugins disable <plugin-name>
-hermes plugins update <plugin-name>
-hermes plugins remove <plugin-name>
+shiva plugins install owner/repository --no-enable
+shiva plugins list
+shiva plugins enable <plugin-name>
+shiva plugins disable <plugin-name>
+shiva plugins update <plugin-name>
+shiva plugins remove <plugin-name>
 ```
 
-Portable packages remain disabled until explicitly enabled. Hermes currently
+Portable packages remain disabled until explicitly enabled. Shiva currently
 loads portable Agent Skills and stdio MCP entries. See the
 [plugin developer guide](/developer-guide/plugins#portable-agent-plugins-v1-packages)
 for the exact supported subset and trust boundary.
 
 ## Interface Layout
 
-<img className="docs-terminal-figure" src="/docs/img/docs/cli-layout.svg" alt="Stylized preview of the Hermes CLI layout showing the banner, conversation area, and fixed input prompt." />
-<p className="docs-figure-caption">The Hermes CLI banner, conversation stream, and fixed input prompt rendered as a stable docs figure instead of fragile text art.</p>
+<img className="docs-terminal-figure" src="/docs/img/docs/cli-layout.svg" alt="Stylized preview of the Shiva CLI layout showing the banner, conversation area, and fixed input prompt." />
+<p className="docs-figure-caption">The Shiva CLI banner, conversation stream, and fixed input prompt rendered as a stable docs figure instead of fragile text art.</p>
 
 The welcome banner shows your model, terminal backend, working directory, available tools, and installed skills at a glance.
 
@@ -139,7 +139,7 @@ A persistent status bar sits above the input area, updating in real time:
 | ▶ N | **Active background tasks** — how many `/background` prompts are still running in the current session. Appears whenever at least one task is in flight. |
 | Duration | Elapsed session time |
 | Session title | Once the session has a title, it appears as a gold badge pinned to the far-right edge. Long titles truncate before displacing the essential model and context fields. |
-| ⚠ YOLO | **YOLO mode warning** — shown whenever `HERMES_YOLO_MODE` is on (either `hermes --yolo` at launch or `/yolo` toggled mid-session). Mirrors the banner-line warning so you can't forget you're in auto-approve mode. |
+| ⚠ YOLO | **YOLO mode warning** — shown whenever `SHIVA_YOLO_MODE` is on (either `shiva --yolo` at launch or `/yolo` toggled mid-session). Mirrors the banner-line warning so you can't forget you're in auto-approve mode. |
 
 The bar adapts to terminal width — full layout at ≥ 76 columns, compact at 52–75, minimal (model + duration, plus the YOLO badge when active) below 52.
 
@@ -154,11 +154,11 @@ The bar adapts to terminal width — full layout at ≥ 76 columns, compact at 5
 
 Use `/usage` for a detailed breakdown including per-category costs (input vs output tokens).
 
-On the `openai-codex` provider, `/usage` also shows any banked usage-limit resets on your ChatGPT account ("You have N resets banked - use /usage reset to activate"). `/usage reset` redeems one banked reset, fully restoring your 5-hour and weekly limits. Hermes refuses to redeem while your limits aren't exhausted (a banked reset restores the full allowance, so spending it early wastes it) — pass `/usage reset --force` to redeem anyway.
+On the `openai-codex` provider, `/usage` also shows any banked usage-limit resets on your ChatGPT account ("You have N resets banked - use /usage reset to activate"). `/usage reset` redeems one banked reset, fully restoring your 5-hour and weekly limits. Shiva refuses to redeem while your limits aren't exhausted (a banked reset restores the full allowance, so spending it early wastes it) — pass `/usage reset --force` to redeem anyway.
 
 ### Session Resume Display
 
-When resuming a previous session (`hermes -c` or `hermes --resume <id>`), a "Previous Conversation" panel appears between the banner and the input prompt, showing a compact recap of the conversation history. See [Sessions — Conversation Recap on Resume](sessions.md#conversation-recap-on-resume) for details and configuration.
+When resuming a previous session (`shiva -c` or `shiva --resume <id>`), a "Previous Conversation" panel appears between the banner and the input prompt, showing a compact recap of the conversation history. See [Sessions — Conversation Recap on Resume](sessions.md#conversation-recap-on-resume) for details and configuration.
 
 ## Keybindings
 
@@ -174,7 +174,7 @@ When resuming a previous session (`hermes -c` or `hermes --resume <id>`), a "Pre
 | `Ctrl+S` | **Stash the prompt.** Parks the current draft and clears the composer so you can send something else first. Press `Ctrl+S` again on an empty composer to bring the draft back (cursor at the end, attached images restored). Repeated presses build a stack rather than overwriting, so an earlier draft is never silently lost — with two or more stashed, `Ctrl+S` opens a browse panel (`↑`/`↓` to navigate, `Enter` to restore, `D` to discard, `Esc` or `Ctrl+S` to close). A `📌 N` badge in the status bar shows how many drafts are parked. Multi-line drafts round-trip exactly, including blank lines. The stash lives in memory for the session only — nothing is written to disk, since drafts often contain secrets. |
 | `Ctrl+C` | Interrupt agent (double-press within 2s to force exit) |
 | `Ctrl+D` | Exit |
-| `Ctrl+Z` | Suspend Hermes to background (Unix only). Run `fg` in the shell to resume. |
+| `Ctrl+Z` | Suspend Shiva to background (Unix only). Run `fg` in the shell to resume. |
 | `Tab` | Accept auto-suggestion (ghost text) or autocomplete slash commands |
 | `!<command>` | **Shell mode** — run a shell command yourself without spending a model turn (e.g. `!git status`, `!pytest -x`). See below. |
 
@@ -193,7 +193,7 @@ Start a line with `!` to run it as a shell command instead of sending it to the 
 - **Zero cost.** The model is never invoked — no API call, no tokens, no latency.
 - **Nothing enters the conversation.** The command and its output are not added to history, so your context stays clean and the prompt cache is untouched.
 - **Runs where the agent's `terminal` tool runs.** Uses the session working directory, so `!pwd` matches what the agent would see.
-- **Approvals still apply.** A dangerous command (`rm -rf`, writes to `~/.hermes/config.yaml`, etc.) goes through the same approval prompt the agent's `terminal` tool uses. `!` is a cost/latency shortcut, not a security bypass.
+- **Approvals still apply.** A dangerous command (`rm -rf`, writes to `~/.shiva/config.yaml`, etc.) goes through the same approval prompt the agent's `terminal` tool uses. `!` is a cost/latency shortcut, not a security bypass.
 - **Non-zero exits are shown.** A failing command prints `! exited <code>` after its output.
 - `!` on its own prints a one-line usage reminder.
 
@@ -203,7 +203,7 @@ Shell mode is CLI-only. Gateway platforms (Discord, Telegram, Slack) and cron ru
 
 ## Slash Commands
 
-Type `/` to see the autocomplete dropdown. Hermes supports a large set of CLI slash commands, dynamic skill commands, and user-defined quick commands.
+Type `/` to see the autocomplete dropdown. Shiva supports a large set of CLI slash commands, dynamic skill commands, and user-defined quick commands.
 
 Common examples:
 
@@ -216,7 +216,7 @@ Common examples:
 | `/background <prompt>` | Run a prompt in a separate background session |
 | `/skin` | Show or switch the active CLI skin |
 | `/voice on` | Enable CLI voice mode (press `Ctrl+B` to record) |
-| `/voice tts` | Toggle spoken playback for Hermes replies |
+| `/voice tts` | Toggle spoken playback for Shiva replies |
 | `/reasoning high` | Increase reasoning effort |
 | `/title My Session` | Name the current session |
 | `/status` | Show session info — model/profile/tokens/duration — followed by a local **Session recap** block (recent turn counts, top tools used, files touched, latest user prompt + assistant reply). Pure local compute; no LLM call. |
@@ -236,11 +236,11 @@ Commands are case-insensitive — `/HELP` works the same as `/help`. Installed s
 You can define custom commands that run shell commands instantly without invoking the LLM. These work in both the CLI and messaging platforms (Telegram, Discord, etc.).
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.shiva/config.yaml
 quick_commands:
   status:
     type: exec
-    command: systemctl status hermes-agent
+    command: systemctl status shiva-agent
   gpu:
     type: exec
     command: nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv,noheader
@@ -256,15 +256,15 @@ Then type `/status`, `/gpu`, or `/restart` in any chat. See the [Configuration g
 If you already know which skills you want active for the session, pass them at launch time:
 
 ```bash
-hermes -s hermes-agent-dev,github-auth
-hermes chat -s github-pr-workflow -s github-auth
+shiva -s shiva-agent-dev,github-auth
+shiva chat -s github-pr-workflow -s github-auth
 ```
 
-Hermes loads each named skill into the session prompt before the first turn. The same flag works in interactive mode and single-query mode.
+Shiva loads each named skill into the session prompt before the first turn. The same flag works in interactive mode and single-query mode.
 
 ## Skill Slash Commands
 
-Every installed skill in `~/.hermes/skills/` is automatically registered as a slash command. The skill name becomes the command:
+Every installed skill in `~/.shiva/skills/` is automatically registered as a slash command. The skill name becomes the command:
 
 ```
 /gif-search funny cats
@@ -289,13 +289,13 @@ Built-in personalities include: `helpful`, `concise`, `technical`, `creative`, `
 
 To go back to the default (no overlay), use `/personality none` — `default` and `neutral` work too.
 
-You can also define custom personalities in `~/.hermes/config.yaml`:
+You can also define custom personalities in `~/.shiva/config.yaml`:
 
 ```yaml
 personalities:
   helpful: "You are a helpful, friendly AI assistant."
   kawaii: "You are a kawaii assistant! Use cute expressions..."
-  pirate: "Arrr! Ye be talkin' to Captain Hermes..."
+  pirate: "Arrr! Ye be talkin' to Captain Shiva..."
   # Add your own!
 ```
 
@@ -312,10 +312,10 @@ There are two ways to enter multi-line messages:
   2. Returns the sum
 ```
 
-`Ctrl+J` and backslash continuation are enabled by default, matching Claude Code / Codex / OpenCode multiline shortcuts. On supported terminals such as iTerm2, Hermes also requests extended key reporting so `Shift+Enter` arrives as a distinct newline key. If your terminal sends LF for plain `Enter` and you need the legacy `Ctrl+J`-as-submit fallback, opt out:
+`Ctrl+J` and backslash continuation are enabled by default, matching Claude Code / Codex / OpenCode multiline shortcuts. On supported terminals such as iTerm2, Shiva also requests extended key reporting so `Shift+Enter` arrives as a distinct newline key. If your terminal sends LF for plain `Enter` and you need the legacy `Ctrl+J`-as-submit fallback, opt out:
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.shiva/config.yaml
 display:
   cli_multiline_shortcuts: false
 ```
@@ -326,7 +326,7 @@ Pasting multi-line text is supported — use any of the newline keys above, or s
 
 ### Shift+Enter compatibility
 
-Most terminals send the same byte sequence for `Enter` and `Shift+Enter` by default, so applications cannot distinguish them. Hermes recognises `Shift+Enter` only when the terminal sends a distinct sequence via the [Kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/) or xterm's `modifyOtherKeys` mode.
+Most terminals send the same byte sequence for `Enter` and `Shift+Enter` by default, so applications cannot distinguish them. Shiva recognises `Shift+Enter` only when the terminal sends a distinct sequence via the [Kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/) or xterm's `modifyOtherKeys` mode.
 
 | Terminal | Status |
 |---|---|
@@ -335,7 +335,7 @@ Most terminals send the same byte sequence for `Enter` and `Shift+Enter` by defa
 | Windows Terminal Preview 1.25+ | Supported once the Kitty protocol is enabled in settings |
 | macOS Terminal.app, stock Windows Terminal (stable) | Not supported — `Shift+Enter` is indistinguishable from `Enter` |
 
-Where the terminal cannot distinguish them, `Alt+Enter` and `Ctrl+J` continue to work by default. **On Windows Terminal specifically, `Alt+Enter` is captured by the terminal (toggles fullscreen) and never reaches Hermes — use `Ctrl+Enter` (delivered as `Ctrl+J`) or `Ctrl+J` directly for a newline.**
+Where the terminal cannot distinguish them, `Alt+Enter` and `Ctrl+J` continue to work by default. **On Windows Terminal specifically, `Alt+Enter` is captured by the terminal (toggles fullscreen) and never reaches Shiva — use `Ctrl+Enter` (delivered as `Ctrl+J`) or `Ctrl+J` directly for a newline.**
 
 ## Redirecting the Agent Mid-Turn
 
@@ -357,7 +357,7 @@ The `display.busy_input_mode` config key controls what happens when you press En
 | `"steer"` | Your message is injected into the current run via `/steer`, arriving at the agent after the next tool call — no interrupt, no new turn |
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.shiva/config.yaml
 display:
   busy_input_mode: "steer"   # or "queue" or "interrupt" (default)
 ```
@@ -376,15 +376,15 @@ You can also change it inside the CLI:
 ```
 
 :::tip First-touch hint
-The first time you press Enter while Hermes is working, Hermes prints a one-line reminder explaining the `/busy` knob. It only fires once per install; `onboarding.seen.busy_input_prompt` in `config.yaml` records that it was shown. Delete that key to see the tip again.
+The first time you press Enter while Shiva is working, Shiva prints a one-line reminder explaining the `/busy` knob. It only fires once per install; `onboarding.seen.busy_input_prompt` in `config.yaml` records that it was shown. Delete that key to see the tip again.
 :::
 
 ### Suspending to Background
 
-On Unix systems, press **`Ctrl+Z`** to suspend Hermes to the background — just like any terminal process. The shell prints a confirmation:
+On Unix systems, press **`Ctrl+Z`** to suspend Shiva to the background — just like any terminal process. The shell prints a confirmation:
 
 ```
-Hermes Agent has been suspended. Run `fg` to bring Hermes Agent back.
+Shiva Agent has been suspended. Run `fg` to bring Shiva Agent back.
 ```
 
 Type `fg` in your shell to resume the session exactly where you left off. This is not supported on Windows.
@@ -414,7 +414,7 @@ Cycle through display modes with `/verbose`: `off → new → all → verbose`. 
 The `display.tool_preview_length` config key controls the maximum number of characters shown in tool call preview lines (e.g. file paths, terminal commands). The default is `0`, which means no limit — full paths and commands are shown.
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.shiva/config.yaml
 display:
   tool_preview_length: 80   # Truncate tool previews to 80 chars (0 = no limit)
 ```
@@ -429,7 +429,7 @@ When you exit a CLI session, a resume command is printed:
 
 ```
 Resume this session with:
-  hermes --resume 20260225_143052_a1b2c3
+  shiva --resume 20260225_143052_a1b2c3
 
 Session:        20260225_143052_a1b2c3
 Duration:       12m 34s
@@ -439,23 +439,23 @@ Messages:       28 (5 user, 18 tool calls)
 Resume options:
 
 ```bash
-hermes --continue                          # Resume the most recent CLI session
-hermes -c                                  # Short form
-hermes -c "my project"                     # Resume a named session (latest in lineage)
-hermes --resume 20260225_143052_a1b2c3     # Resume a specific session by ID
-hermes --resume "refactoring auth"         # Resume by title
-hermes --resume latest                     # Resume the most recent session (same as -c)
-hermes --resume latest --in ./my-project   # Latest session for ./my-project's workspace
-hermes -r 20260225_143052_a1b2c3           # Short form
+shiva --continue                          # Resume the most recent CLI session
+shiva -c                                  # Short form
+shiva -c "my project"                     # Resume a named session (latest in lineage)
+shiva --resume 20260225_143052_a1b2c3     # Resume a specific session by ID
+shiva --resume "refactoring auth"         # Resume by title
+shiva --resume latest                     # Resume the most recent session (same as -c)
+shiva --resume latest --in ./my-project   # Latest session for ./my-project's workspace
+shiva -r 20260225_143052_a1b2c3           # Short form
 ```
 
 Resuming restores the full conversation history from SQLite. The agent sees all previous messages, tool calls, and responses — just as if you never left.
 
-Use `/title My Session Name` inside a chat to name the current session, or `hermes sessions rename <id> <title>` from the command line. Use `hermes sessions list` to browse past sessions.
+Use `/title My Session Name` inside a chat to name the current session, or `shiva sessions rename <id> <title>` from the command line. Use `shiva sessions list` to browse past sessions.
 
 ### Session Storage
 
-CLI sessions are stored in Hermes's SQLite state database under `~/.hermes/state.db`. The database keeps:
+CLI sessions are stored in Shiva's SQLite state database under `~/.shiva/state.db`. The database keeps:
 
 - session metadata (ID, title, timestamps, token counters)
 - message history
@@ -469,7 +469,7 @@ Some messaging adapters also keep per-platform transcript files alongside the da
 Long conversations are automatically summarized when approaching context limits:
 
 ```yaml
-# In ~/.hermes/config.yaml
+# In ~/.shiva/config.yaml
 compression:
   enabled: true
   threshold: 0.50    # Compress at 50% of context limit by default
@@ -490,7 +490,7 @@ Run a prompt in a separate background session while continuing to use the CLI fo
 /background Analyze the logs in /var/log and summarize any errors from today
 ```
 
-Hermes immediately confirms the task and gives you back the prompt:
+Shiva immediately confirms the task and gives you back the prompt:
 
 ```
 🔄 Background task #1 started: "Analyze the logs in /var/log and summarize..."
@@ -511,7 +511,7 @@ Each `/background` prompt spawns a **completely separate agent session** in a da
 When a background task finishes, the result appears as a panel in your terminal:
 
 ```
-╭─ ⚕ Hermes (background #1) ──────────────────────────────────╮
+╭─ ⚕ Shiva (background #1) ──────────────────────────────────╮
 │ Found 3 errors in syslog from today:                         │
 │ 1. OOM killer invoked at 03:22 — killed process nginx        │
 │ 2. Disk I/O error on /dev/sda1 at 07:15                      │
@@ -540,5 +540,5 @@ By default, the CLI runs in quiet mode which:
 
 For debug output:
 ```bash
-hermes chat --verbose
+shiva chat --verbose
 ```

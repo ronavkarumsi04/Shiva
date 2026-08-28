@@ -99,7 +99,7 @@ def collect_parent_loaded_skills(
 
     Two sources, both surface-independent:
 
-    * Launch-preloaded skills (``hermes -s``, kanban lanes, TUI skills env):
+    * Launch-preloaded skills (``shiva -s``, kanban lanes, TUI skills env):
       their activation notes are embedded in the parent's
       ``ephemeral_system_prompt`` with a stable marker
       (see ``agent.skill_commands.build_preloaded_skills_prompt``).
@@ -208,7 +208,7 @@ def _load_review_credentials_cfg() -> Optional[Dict[str, Any]]:
     credentials — the main-model-first default.
     """
     try:
-        from hermes_cli.config import load_config_readonly
+        from shiva_cli.config import load_config_readonly
 
         full = load_config_readonly()
         aux = full.get("auxiliary") or {}

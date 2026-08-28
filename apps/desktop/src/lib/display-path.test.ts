@@ -4,7 +4,7 @@ import { displayPath, normalizeDisplayPath, pathLeaf } from './display-path'
 
 describe('displayPath', () => {
   it('collapses a macOS home prefix to ~', () => {
-    expect(displayPath('/Users/brooklyn/www/hermes-agent')).toBe('~/www/hermes-agent')
+    expect(displayPath('/Users/brooklyn/www/shiva-agent')).toBe('~/www/shiva-agent')
     expect(displayPath('/Users/brooklyn')).toBe('~')
   })
 
@@ -40,8 +40,8 @@ describe('displayPath', () => {
 
 describe('pathLeaf', () => {
   it('returns the last segment', () => {
-    expect(pathLeaf('/Users/me/www/hermes-agent')).toBe('hermes-agent')
-    expect(pathLeaf('~/www/hermes-agent')).toBe('hermes-agent')
+    expect(pathLeaf('/Users/me/www/shiva-agent')).toBe('shiva-agent')
+    expect(pathLeaf('~/www/shiva-agent')).toBe('shiva-agent')
     expect(pathLeaf('/')).toBe('/')
   })
 })

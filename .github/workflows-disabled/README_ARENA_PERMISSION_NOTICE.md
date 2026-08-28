@@ -1,7 +1,7 @@
 # Workflow files staged outside `.github/workflows`
 
 The files in this directory are the complete GitHub Actions workflow set imported
-from NousResearch/hermes-agent commit
+from NousResearch/shiva-agent commit
 `9c87a7c79e9b14366f5dd9aa5b46cebde868cfd4`.
 
 They are stored here because the Arena GitHub App has code write permission but

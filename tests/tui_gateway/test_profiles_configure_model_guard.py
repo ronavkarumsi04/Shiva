@@ -23,7 +23,7 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-import hermes_cli.model_selection_guards as guards
+import shiva_cli.model_selection_guards as guards
 import tui_gateway.server as srv
 
 GUARDED_MODEL = "muse-spark-1.2-contributor"
@@ -32,10 +32,10 @@ GUARD_MESSAGE = "CONTRIBUTOR TIER: this model may train on your data."
 
 @pytest.fixture
 def home(tmp_path, monkeypatch):
-    hermes_home = tmp_path / ".hermes"
-    hermes_home.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-    return hermes_home
+    shiva_home = tmp_path / ".shiva"
+    shiva_home.mkdir()
+    monkeypatch.setenv("SHIVA_HOME", str(shiva_home))
+    return shiva_home
 
 
 @pytest.fixture
@@ -90,11 +90,11 @@ def test_confirmed_resend_writes_the_guarded_model(home, contributor_guard):
 
 
 def test_unguarded_model_still_writes_without_confirmation(home, contributor_guard):
-    result = _configure({"model": "hermes-4.5-405b", "provider": "nous"})
+    result = _configure({"model": "shiva-4.5-405b", "provider": "nous"})
 
     assert not result.get("confirm_required")
     assert result["applied"].get("model") is True
-    assert _profile_model(home) == "hermes-4.5-405b"
+    assert _profile_model(home) == "shiva-4.5-405b"
 
 
 def test_other_sections_still_apply_while_model_awaits_confirmation(home, contributor_guard):

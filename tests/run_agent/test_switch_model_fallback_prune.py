@@ -3,7 +3,7 @@ silently fell back to the old primary provider on the next turn because the
 fallback chain — seeded from config at agent __init__ — kept entries for the
 provider the user just moved away from.
 
-Reported: "switched from openrouter provider to anthropic api key via hermes
+Reported: "switched from openrouter provider to anthropic api key via shiva
 model and the tui keeps trying openrouter".
 """
 
@@ -42,7 +42,7 @@ def _switch_to_anthropic(agent):
         patch("agent.anthropic_adapter.build_anthropic_client", return_value=MagicMock()),
         patch("agent.anthropic_adapter.resolve_anthropic_token", return_value="sk-ant-xyz"),
         patch("agent.anthropic_adapter._is_oauth_token", return_value=False),
-        patch("hermes_cli.timeouts.get_provider_request_timeout", return_value=None),
+        patch("shiva_cli.timeouts.get_provider_request_timeout", return_value=None),
     ):
         agent.switch_model(
             new_model="claude-sonnet-4-5",
@@ -56,7 +56,7 @@ def _switch_to_anthropic(agent):
 def test_switch_drops_old_primary_from_fallback_chain():
     agent = _make_agent([
         {"provider": "openrouter", "model": "x-ai/grok-4"},
-        {"provider": "nous", "model": "hermes-4"},
+        {"provider": "nous", "model": "shiva-4"},
     ])
 
     _switch_to_anthropic(agent)
@@ -66,7 +66,7 @@ def test_switch_drops_old_primary_from_fallback_chain():
     assert "openrouter" not in providers, "old primary must be pruned"
     assert "anthropic" not in providers, "new primary is redundant in the chain"
     assert providers == ["nous"]
-    assert agent._fallback_model == {"provider": "nous", "model": "hermes-4"}
+    assert agent._fallback_model == {"provider": "nous", "model": "shiva-4"}
 
 
 def test_switch_with_empty_chain_stays_empty():
@@ -81,7 +81,7 @@ def test_switch_with_empty_chain_stays_empty():
 def test_manual_switch_clears_provider_fallback_provenance():
     agent = _make_agent([
         {"provider": "openrouter", "model": "x-ai/grok-4"},
-        {"provider": "nous", "model": "hermes-4"},
+        {"provider": "nous", "model": "shiva-4"},
     ])
     agent._provider_fallback_active = True
     agent._provider_fallback_route = ("fallback-model", "fallback-provider")
@@ -98,7 +98,7 @@ def test_switch_within_same_provider_preserves_chain():
     chain = [{"provider": "openrouter", "model": "x-ai/grok-4"}]
     agent = _make_agent(chain)
 
-    with patch("hermes_cli.timeouts.get_provider_request_timeout", return_value=None):
+    with patch("shiva_cli.timeouts.get_provider_request_timeout", return_value=None):
         agent.switch_model(
             new_model="openai/gpt-5",
             new_provider="openrouter",

@@ -1,4 +1,4 @@
-import { JsonRpcGatewayError } from '@hermes/shared'
+import { JsonRpcGatewayError } from '@shiva/shared'
 import { atom, computed } from 'nanostores'
 
 import { translateNow } from '@/i18n'

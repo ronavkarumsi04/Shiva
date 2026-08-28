@@ -5,14 +5,14 @@ vi.mock('@/store/transcript-tail', () => ({ recordTranscriptTail: vi.fn() }))
 vi.mock('./client', () => ({
   capabilityScoped: vi.fn(),
   getApiRequestConnection: vi.fn(() => 'prometheus'),
-  hermesApi: vi.fn(),
+  shivaApi: vi.fn(),
   profileScoped: vi.fn(() => ({}))
 }))
 
 const client = await import('./client')
 const { listSidebarSessions } = await import('./sessions')
 
-const hermesApi = vi.mocked(client.hermesApi)
+const shivaApi = vi.mocked(client.shivaApi)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -21,7 +21,7 @@ beforeEach(() => {
 
 describe('listSidebarSessions remote ownership', () => {
   it('stamps active remote rows so a later resume stays on their gateway', async () => {
-    hermesApi.mockResolvedValue({
+    shivaApi.mockResolvedValue({
       cron: { sessions: [] },
       messaging: { sessions: [] },
       recents: {
